@@ -1123,6 +1123,59 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__mobileClassTimeout = setTimeout(updateMobileClass, 120);
   });
 })();
+     // --- Mobile sidebar toggle + sync brand neon text ---
+// Pegar dentro de DOMContentLoaded o justo después de que el DOM haya cargado.
+
+(function mobileNavSetup(){
+  const hamburger = document.getElementById('mobileHamburger');
+  const overlay = document.getElementById('mobileNavOverlay');
+  const sidebar = document.getElementById('mobileSidebar');
+  const closeBtn = document.getElementById('mobileCloseBtn');
+  const brandDesktop = document.getElementById('brandNeon');
+  const brandMobile = document.getElementById('brandNeonMobile');
+
+  function openMobileNav() {
+    if (overlay) overlay.classList.add('visible');
+    if (sidebar) sidebar.classList.add('open');
+    if (overlay) overlay.setAttribute('aria-hidden', 'false');
+    if (sidebar) sidebar.setAttribute('aria-hidden', 'false');
+    document.documentElement.classList.add('mobile-nav-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMobileNav() {
+    if (overlay) overlay.classList.remove('visible');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.setAttribute('aria-hidden', 'true');
+    if (sidebar) sidebar.setAttribute('aria-hidden', 'true');
+    document.documentElement.classList.remove('mobile-nav-open');
+    document.body.style.overflow = '';
+  }
+
+  // Bind events if elements exist
+  if (hamburger) hamburger.addEventListener('click', openMobileNav);
+  if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
+  if (overlay) overlay.addEventListener('click', closeMobileNav);
+  // close with Escape key
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMobileNav(); });
+
+  // Sync brand neon text (initial + when site title changes from admin)
+  function syncBrandText() {
+    if (!brandMobile) return;
+    if (brandDesktop) brandMobile.textContent = brandDesktop.textContent || brandMobile.textContent;
+  }
+  // initial
+  syncBrandText();
+
+  // observe brandDesktop changes (so when admin saves title it's reflected)
+  if (brandDesktop && brandMobile) {
+    const mo = new MutationObserver(syncBrandText);
+    mo.observe(brandDesktop, { childList: true, characterData: true, subtree: true });
+  }
+
+  // expose close function globally so markup onclick (closeMobileNav()) works
+  window.closeMobileNav = closeMobileNav;
+  window.openMobileNav = openMobileNav;
+})();
   }
 
   const saveBulkBtn = document.getElementById('saveBulkBtn');
@@ -1140,3 +1193,4 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 });
+
