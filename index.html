@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ElectroFlips Xperience | Streaming y servicios digitales</title>
+  <meta name="description" content="Tienda online de servicios de streaming, música, deportes y herramientas digitales. Accede fácil, seguro y a los mejores precios.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="main-nav">
+    <div class="nav-left">
+      <figure class="brand-figure" style="margin:0; display:flex; align-items:center; gap:1rem;">
+        <img src="images/electroflips.png" alt="Logo ElectroFlips Xperience" class="logo-nav" />
+      </figure>
+
+      <div class="nav-links">
+        <a href="#" onclick="showSection('inicio')">Inicio</a>
+        <a href="#" onclick="showSection('catalogo')">Catálogo</a>
+        <a href="#" onclick="showSection('carrito')">Carrito</a>
+        <a href="#" onclick="showSection('contacto')">Contacto</a>
+        <a href="#" onclick="showSection('admin')">Administrador</a>
+      </div>
+    </div>
+
+    <div class="nav-right">
+      <div id="brandNeon" class="brand-neon" aria-label="Nombre del sitio">
+        ElectroFlips Xperience
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <!-- INICIO -->
+    <section id="inicio" class="section active">
+      <div class="title">Bienvenido a ElectroFlips Xperience</div>
+      <div class="subtitle">Tu tienda online de servicios y productos electrónicos</div>
+      <p class="welcome-message">
+        Disfruta tus plataformas de streaming favoritas, música, deportes y más.<br>
+        <span class="highlight">¡Al mejor precio y con calidad garantizada!</span> 💸🔐📺<br>
+        Ofertas exclusivas, acceso inmediato y atención personalizada.<br>
+        ¿List@ para hacer de tu sofá el mejor cine del mundo? <span class="wave">🍿🛋️</span>
+      </p>
+      <button class="btn" onclick="showSection('catalogo')">Ver Catálogo</button>
+ 
+      <!-- Favoritos / Accesos directos -->
+      <div style="margin-top:2rem;">
+        <h3 style="text-align:center;">Favoritos</h3>
+        <div id="favoritesContainer" style="max-width:1100px;margin:0 auto;"></div>
+      </div>
+
+<!-- Pegar dentro del <section id="inicio"> donde quieras mostrar promociones -->
+<div style="margin-top:1.6rem;">
+  <h3 style="text-align:center;">Promociones y Descuentos</h3>
+  <div id="promosContainer" style="max-width:1100px;margin:0 auto;"></div>
+</div>
+ </section>
+
+    <!-- CATÁLOGO -->
+    <section id="catalogo" class="section">
+      <div class="title">Catálogo</div>
+
+      <div class="catalog-controls" style="display:flex;align-items:center;gap:1rem;justify-content:center;margin-bottom:1rem;">
+        <label style="display:flex;align-items:center;gap:0.5rem;">
+          <input type="checkbox" id="promoFilterSwitch" onchange="togglePromoFilter(this.checked)" />
+          Resaltar promociones
+        </label>
+      </div>
+
+      <div id="catalogContainer"></div>
+      <div id="catalogFeedback" class="toast"></div>
+    </section>
+
+    <!-- CARRITO -->
+    <section id="carrito" class="section">
+      <div class="title">Carrito de Compras</div>
+      <div id="cartContainer" class="cart-list"></div>
+      <div id="cartTotal" class="cart-total"></div>
+      <div class="cart-actions">
+        <button class="btn" onclick="finalizePurchase()" id="finalizeBtn" style="display:none;">Finalizar Compra</button>
+      </div>
+    </section>
+
+    <!-- CONTACTO -->
+    <section id="contacto" class="section">
+      <div class="title">Contacto</div>
+      <div class="contact-info">
+        <p><strong>Correo:</strong> flixalbert75@gmail.com</p>
+        <p><strong>WhatsApp:</strong> <a href="https://wa.me/573243052782" target="_blank">+57 324 305 2782</a></p>
+        <p><strong>Instagram:</strong> <a href="https://www.instagram.com/electroflips_xperience" target="_blank">@Electroflips_Xperience</a></p>
+        <p><strong>Facebook:</strong> <a href="https://www.facebook.com/profile.php?id=61572533350376" target="_blank">@ElectroFlips_Xperience</a></p>
+        <p><strong>TikTok:</strong> <a href="https://www.tiktok.com/@electroflips27" target="_blank">@ElectroFlips27</a></p>
+      </div>
+
+    </section>
+
+    <!-- ADMINISTRADOR -->
+    <section id="admin" class="section">
+      <div class="title">Panel Administrador</div>
+      <div id="adminLoginBox">
+        <form id="adminLoginForm">
+          <input type="email" id="adminEmail" placeholder="Code Admin" required/>
+          <input type="password" id="adminPassword" placeholder="Code" required/>
+          <button type="submit" class="btn">Entrar</button>
+        </form>
+        <div id="adminLoginError" style="color:#ff5b5b; margin-top:1em;"></div>
+      </div>
+      <div id="adminPanelBox" style="display:none;">
+        <button class="btn" id="adminLogoutBtn">Cerrar sesión</button>
+        <div class="admin-panel">
+          <div id="combo3x2Admin"></div>
+
+<!-- Pegar dentro de la sección Administrador (admin-panel) -->
+<form id="promoForm" style="margin-bottom:1rem;">
+  <input type="hidden" id="promoId" />
+  <input type="text" id="promoTitle" placeholder="Título de la promo (ej. Combo 3x2)" required style="padding:0.5rem; width:48%;"/>
+  <input type="text" id="promoText" placeholder="Texto (lo que se muestra en inicio)" required style="padding:0.5rem; width:48%;"/>
+  <input type="number" id="promoMinItems" placeholder="Min items (opcional)" min="0" style="padding:0.5rem; width:32%; margin-top:0.6rem;"/>
+  <input type="number" id="promoPercent" placeholder="Descuento % (opcional)" min="0" max="100" style="padding:0.5rem; width:32%; margin-top:0.6rem;"/>
+  <select id="promoApplyTo" style="padding:0.5rem; width:32%; margin-top:0.6rem;">
+    <option value="all">Aplicar a: Todos</option>
+    <option value="eligibles">Aplicar a: Elegibles Combo 3x2</option>
+  </select>
+ <input type="text" id="promoImage" placeholder="URL imagen (opcional)" style="padding:0.5rem; width:48%; margin-top:0.6rem;" />
+  <div style="margin-top:0.6rem;">
+    <button class="btn" type="button" onclick="savePromoFromAdmin()">Guardar Promo</button>
+    <button class="btn" type="button" style="background:#bbb;color:#222;margin-left:0.6rem;" onclick="clearPromoForm()">Limpiar</button>
+  </div>
+</form>
+
+<div id="promoList"></div>
+
+
+          <h2>Configuración del sitio</h2>
+          <div style="margin-bottom:1rem;">
+            <label style="display:block;margin-bottom:0.4rem;">Frase/Marquilla (neón) del encabezado:</label>
+            <input type="text" id="adminSiteTitle" placeholder="ElectroFlips Xperience" style="padding:0.5rem; width:70%;" />
+            <button class="btn" id="saveSiteTitleBtn" style="display:inline-block; margin-left:0.6rem;">Guardar</button>
+          </div>
+
+          <h2>Descuento por compra múltiple</h2>
+          <div style="margin-bottom:1rem; display:flex; gap:0.6rem; align-items:center;">
+            <label style="display:flex;align-items:center;gap:0.4rem;">
+              <input type="checkbox" id="bulkEnabled" />
+              Activar descuento por cantidad
+            </label>
+            <label>
+              <span style="display:block;font-size:0.9rem;">Mínimo items</span>
+              <input type="number" id="bulkMinItems" min="1" value="4" style="width:100px; padding:0.4rem;" />
+            </label>
+            <label>
+              <span style="display:block;font-size:0.9rem;">Descuento (%)</span>
+              <input type="number" id="bulkPercent" min="1" max="100" value="20" style="width:100px; padding:0.4rem;" />
+            </label>
+            <label>
+              <span style="display:block;font-size:0.9rem;">Aplicar a</span>
+              <select id="bulkApplyTo" style="padding:0.4rem;">
+                <option value="all">Todos los productos</option>
+                <option value="eligibles">Sólo elegibles Combo 3x2</option>
+              </select>
+            </label>
+            <button class="btn" id="saveBulkBtn">Guardar</button>
+          </div>
+
+          <h2>Agregar Producto</h2>
+          <form id="addProductForm">
+            <input type="text" id="adminNombre" placeholder="Nombre" required/>
+            <input type="text" id="adminDescripcion" placeholder="Descripción (separa por ;)" required/>
+            <input type="number" id="adminPrecio" placeholder="Precio" min="0" required/>
+            <input type="text" id="adminCategoria" placeholder="Categoría" required/>
+            <input type="text" id="adminImagen" placeholder="URL Imagen" required/>
+            <input type="number" id="adminOferta" placeholder="Precio Oferta (opcional)" min="0"/>
+            <input type="text" id="adminPromo" placeholder="Promoción especial (opcional)"/>
+            <label style="display:flex;align-items:center;gap:0.5rem;">
+              <input type="checkbox" id="adminFeatured"/>
+              Marcar como favorito (mostrar icono en inicio)
+            </label>
+            <button type="submit" class="btn">Guardar Producto</button>
+          </form>
+
+          <h2>Editar Producto</h2>
+          <div id="editFormBox" style="display:none;">
+            <form id="editProductForm">
+              <input type="hidden" id="editId"/>
+              <input type="text" id="editNombre" placeholder="Nombre" required/>
+              <input type="text" id="editDescripcion" placeholder="Descripción (separa por ;)" required/>
+              <input type="number" id="editPrecio" placeholder="Precio" min="0" required/>
+              <input type="text" id="editCategoria" placeholder="Categoría" required/>
+              <input type="text" id="editImagen" placeholder="URL Imagen" required/>
+              <input type="number" id="editOferta" placeholder="Precio Oferta (opcional)" min="0"/>
+              <input type="text" id="editPromo" placeholder="Promoción especial (opcional)"/>
+              <label style="display:flex;align-items:center;gap:0.5rem;">
+                <input type="checkbox" id="editFeatured"/>
+                Marcar como favorito (mostrar icono en inicio)
+              </label>
+              <button type="submit" class="btn">Actualizar Producto</button>
+              <button type="button" class="btn" id="editCancelBtn" style="background:#bbb; color:#222;">Cancelar</button>
+            </form>
+          </div>
+
+          <h2>Productos Existentes</h2>
+          <div id="adminProductList"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal de producto -->
+  <div id="productModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeProductModal()">×</button>
+      <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;">
+        <img id="modalImage" src="images/placeholder.png" alt="Imagen" style="width:180px;height:180px;object-fit:cover;border-radius:8px;">
+        <div style="flex:1;">
+          <h3 id="modalTitle">Título</h3>
+          <div id="modalPromoTag" style="color:#00ff85;font-weight:bold;margin-bottom:0.4rem;"></div>
+          <div id="modalDesc"></div>
+          <div id="modalPrice" style="margin-top:0.6rem;font-size:1.1rem;color:#00ff85;font-weight:bold;"></div>
+          <div style="margin-top:0.8rem;">
+            <button id="modalBuyBtn" class="btn">Comprar</button>
+            <button class="btn" style="background:#bbb;color:#222;margin-left:0.6rem;" onclick="closeProductModal()">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2025 ElectroFlips Xperience. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDPxTBxGbkP_LCmT_4Od8lRFdBF80CC6v4",
+    authDomain: "electroflips-experience.firebaseapp.com",
+    projectId: "electroflips-experience",
+    storageBucket: "electroflips-experience.firebasestorage.app",
+    messagingSenderId: "431548857935",
+    appId: "1:431548857935:web:d529383a31128fe077b43a",
+    measurementId: "G-XPPM14QKQ7"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+<script src="app.js"></script>
+</body>
+
+</html>
