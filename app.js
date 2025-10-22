@@ -1106,6 +1106,23 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Error guardando título. Revisa la consola.');
       });
     };
+     // --- Insertar dentro de document.addEventListener('DOMContentLoaded', ...) ---
+// Detectar dispositivo / ancho y agregar clase al <html> para estilos específicos
+(function setupMobileClass(){
+  function updateMobileClass() {
+    const isMobile = window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
+    if (isMobile) document.documentElement.classList.add('is-mobile');
+    else document.documentElement.classList.remove('is-mobile');
+  }
+  // Ejecutar al inicio
+  updateMobileClass();
+  // Escuchar cambios de tamaño (rotación o redimension)
+  window.addEventListener('resize', () => {
+    // throttle simple
+    clearTimeout(window.__mobileClassTimeout);
+    window.__mobileClassTimeout = setTimeout(updateMobileClass, 120);
+  });
+})();
   }
 
   const saveBulkBtn = document.getElementById('saveBulkBtn');
@@ -1121,4 +1138,5 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === modal) closeProductModal();
     });
   }
+
 });
