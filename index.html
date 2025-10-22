@@ -209,7 +209,26 @@
       </div>
     </section>
   </main>
+<!-- pegar justo después de </main> (antes del modal o footer) -->
+<div id="mobileNavOverlay" class="mobile-nav-overlay" aria-hidden="true"></div>
 
+<aside id="mobileSidebar" class="mobile-sidebar" aria-hidden="true" role="dialog" aria-label="Menú">
+  <div class="mobile-sidebar-header">
+    <!-- texto neón (se actualizará automáticamente desde JS) -->
+    <div id="brandNeonMobile" class="brand-neon-mobile">ElectroFlips Xperience</div>
+    <button id="mobileCloseBtn" class="mobile-close" aria-label="Cerrar menú">×</button>
+  </div>
+
+  <nav class="mobile-nav-list" role="navigation" aria-label="Navegación principal">
+    <ul>
+      <li><a href="#" onclick="showSection('inicio'); closeMobileNav();">Inicio</a></li>
+      <li><a href="#" onclick="showSection('catalogo'); closeMobileNav();">Catálogo</a></li>
+      <li><a href="#" onclick="showSection('carrito'); closeMobileNav();">Carrito</a></li>
+      <li><a href="#" onclick="showSection('contacto'); closeMobileNav();">Contacto</a></li>
+      <li><a href="#" onclick="showSection('admin'); closeMobileNav();">Administrador</a></li>
+    </ul>
+  </nav>
+</aside>
   <!-- Modal de producto -->
   <div id="productModal" class="modal" aria-hidden="true">
     <div class="modal-content">
