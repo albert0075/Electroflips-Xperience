@@ -248,7 +248,7 @@ function renderHomeExtras() {
   }
 
   // Promos detalladas: recuadros grandes con imagen, título, texto, badges y producto objetivo si existe
-  promosContainer.innerHTML = '';
+   promosContainer.innerHTML = '';
   if (!sitePromos || sitePromos.length === 0) {
     promosContainer.innerHTML = '<p>No hay promociones configuradas.</p>';
   } else {
@@ -256,13 +256,21 @@ function renderHomeExtras() {
     grid.className = 'promos-detailed-grid';
 
     sitePromos.forEach(pr => {
-      // Resolver nombre del producto objetivo si existe
       const targetName = pr.targetProductId ? (PRODUCTS.find(p => String(p.id) === String(pr.targetProductId))?.nombre || pr.targetProductId) : '';
 
       const card = document.createElement('div');
       card.className = 'promo-detailed-card';
 
-      // Construir innerHTML (pr.image, pr.title, pr.text, pr.percent, pr.minItems)
+      // Build description HTML: prefer descripcion[] as <ul>, otherwise text as <p>
+      let descriptionHtml = '';
+      if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
+        descriptionHtml = '<ul class="promo-detailed-list" style="margin:0 0 0.2rem 1.1rem;padding-left:0;">' +
+          pr.descripcion.map(i => `<li style="margin:0.18rem 0;">${htmlEscape(i)}</li>`).join('') +
+          '</ul>';
+      } else {
+        descriptionHtml = `<p class="promo-detailed-text">${htmlEscape(pr.text || '')}</p>`;
+      }
+
       card.innerHTML = `
         <div class="promo-detailed-thumb">
           <img src="${pr.image || 'images/promo-placeholder.png'}" alt="${htmlEscape(pr.title)}">
@@ -275,7 +283,7 @@ function renderHomeExtras() {
               ${pr.minItems ? `<span class="badge minitems">min ${Number(pr.minItems)}</span>` : ''}
             </div>
           </div>
-          <p class="promo-detailed-text">${htmlEscape(pr.text)}</p>
+          ${descriptionHtml}
           ${pr.targetProductId ? `<div class="promo-target">Producto objetivo: <strong>${htmlEscape(targetName)}</strong></div>` : ''}
           <div class="promo-detailed-actions">
             <button class="btn" onclick="applySitePromoAndOpen('${pr.id}')">Ver en catálogo</button>
@@ -299,6 +307,13 @@ function htmlEscape(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+function parseDescriptionToArray(str) {
+  if (str === undefined || str === null) return [];
+  return String(str)
+    .split(';')
+    .map(s => s.trim())
+    .filter(Boolean);
 }
 
 /* Aplica promo y abre catálogo; scroll al producto si targetProductId existe */
@@ -666,12 +681,21 @@ function renderPromosAdmin() {
     item.style.background = '#232526';
     item.style.borderRadius = '8px';
     item.style.marginBottom = '0.6rem';
+
+    // Preferir descripcion[] si existe, sino usar text
+    let descPreview = '';
+    if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
+      descPreview = pr.descripcion.join(' • ');
+    } else {
+      descPreview = pr.text || '';
+    }
+
     item.innerHTML = `
       <div style="display:flex;gap:0.6rem;align-items:center;">
         ${pr.image ? `<img src="${pr.image}" alt="${pr.title}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;">` : ''}
         <div>
           <strong>${pr.title}</strong>
-          <div style="color:#cbeee0;">${pr.text}</div>
+          <div style="color:#cbeee0; max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${htmlEscape(descPreview)}</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;">
@@ -686,16 +710,18 @@ function renderPromosAdmin() {
 function savePromoFromAdmin() {
   const id = document.getElementById('promoId').value || String(Date.now());
   const title = document.getElementById('promoTitle').value.trim();
-  const text = document.getElementById('promoText').value.trim();
+  const textRaw = document.getElementById('promoText').value.trim();
   const minItems = Number(document.getElementById('promoMinItems').value) || 0;
   const percent = Number(document.getElementById('promoPercent').value) || 0;
   const applyTo = document.getElementById('promoApplyTo').value || 'all';
   const targetProductId = document.getElementById('promoTargetProduct') ? document.getElementById('promoTargetProduct').value.trim() : '';
   const image = document.getElementById('promoImage') ? document.getElementById('promoImage').value.trim() : '';
 
-  if (!title || !text) { alert('Título y texto son requeridos.'); return; }
+  if (!title || !textRaw) { alert('Título y texto son requeridos.'); return; }
 
-  const promoObj = { id, title, text, minItems, percent, applyTo, targetProductId };
+  const descripcionArray = parseDescriptionToArray(textRaw);
+
+  const promoObj = { id, title, text: textRaw, descripcion: descripcionArray, minItems, percent, applyTo, targetProductId };
   if (image) promoObj.image = image;
 
   const updated = sitePromos.filter(p => String(p.id) !== String(id)).concat([promoObj]);
@@ -725,7 +751,12 @@ function editPromoForm(id) {
   if (!pr) return;
   document.getElementById('promoId').value = pr.id || '';
   document.getElementById('promoTitle').value = pr.title || '';
-  document.getElementById('promoText').value = pr.text || '';
+  // Si existe pr.descripcion (array) lo convertimos a string separado por '; '
+  if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
+    document.getElementById('promoText').value = pr.descripcion.join('; ');
+  } else {
+    document.getElementById('promoText').value = pr.text || '';
+  }
   document.getElementById('promoMinItems').value = pr.minItems || '';
   document.getElementById('promoPercent').value = pr.percent || '';
   document.getElementById('promoApplyTo').value = pr.applyTo || 'all';
@@ -1106,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Error guardando título. Revisa la consola.');
       });
     };
-     // --- Insertar dentro de document.addEventListener('DOMContentLoaded', ...) ---
+// --- Insertar dentro de document.addEventListener('DOMContentLoaded', ...) ---
 // Detectar dispositivo / ancho y agregar clase al <html> para estilos específicos
 (function setupMobileClass(){
   function updateMobileClass() {
@@ -1123,7 +1154,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__mobileClassTimeout = setTimeout(updateMobileClass, 120);
   });
 })();
-     // --- Mobile sidebar toggle + sync brand neon text ---
+
+// --- Mobile sidebar toggle + sync brand neon text ---
 // Pegar dentro de DOMContentLoaded o justo después de que el DOM haya cargado.
 
 (function mobileNavSetup(){
@@ -1191,6 +1223,4 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === modal) closeProductModal();
     });
   }
-
 });
-
