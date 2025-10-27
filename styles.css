@@ -871,3 +871,117 @@ html.is-mobile .logo-nav { height:58px; }
   70% { transform: scale(1.6); opacity: 0; }
   100% { transform: scale(1.6); opacity: 0; }
 }
+
+/* --- Ajustes para que promociones y el inicio queden organizados en móvil --- */
+/* Pegar al final de styles.css */
+
+/* Evitar overflow en tarjetas de promo y forzar box-sizing */
+.promos-detailed-grid {
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+.promo-detailed-card {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 10px;
+  word-wrap: break-word;
+}
+
+/* Asegurar imagen responsive y que no estire la tarjeta */
+.promo-detailed-thumb {
+  overflow: hidden;
+  border-radius: 8px;
+  background: #0a0a0a;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.promo-detailed-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Limitar texto para que no alargue demasiado la tarjeta */
+.promo-detailed-text {
+  margin: 0;
+  color: #cbeee0;
+  font-size: 0.96rem;
+  line-height: 1.2;
+  max-height: 6.6em; /* aprox 4-5 líneas */
+  overflow: hidden;
+}
+
+/* Favoritos: permitir envolver texto y altura fija */
+.fav-btn {
+  min-height: 120px;
+  padding: 0.6rem;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+}
+.fav-btn span {
+  white-space: normal;
+  text-overflow: clip;
+  display:block;
+  margin-top: 6px;
+  font-size: 0.92rem;
+}
+
+/* Espacio inferior para que las burbujas no tapen contenido */
+main, .section {
+  padding-bottom: 120px; /* deja espacio para las burbujas flotantes */
+}
+
+/* Héroe (welcome) más compacto en móvil */
+@media (max-width: 720px) {
+  .welcome-message { font-size: 0.98rem; padding: 0 12px; }
+  .title { font-size: 1.6rem; }
+  .subtitle { font-size: 1rem; }
+
+  /* Promos detalladas: apilar y reducir thumb */
+  .promo-detailed-card {
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.8rem;
+  }
+  .promo-detailed-thumb {
+    width: 100%;
+    height: 140px; /* controla altura de la imagen */
+    flex: none;
+  }
+
+  /* permitir que el título pueda envolver en móvil */
+  .promo-detailed-title {
+    white-space: normal;
+    font-size: 1.02rem;
+    line-height: 1.15;
+  }
+
+  /* reducir badges y cuerpo */
+  .badge { font-size: 0.8rem; padding: 0.16rem 0.4rem; }
+  .promo-detailed-text { font-size: 0.92rem; max-height: 7.2em; }
+
+  /* Ajustes para favorites grid y product cards */
+  .favorites-grid { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 0.6rem; }
+  .product-card { padding: 0.7rem; min-height: auto; }
+  .product-image { width:88px; height:88px; }
+
+  /* Acomoda admin y formularios en móvil */
+  .admin-panel { padding: 1rem; }
+  .admin-panel form { flex-direction: column; gap: 8px; }
+  .admin-panel input, .admin-panel select, .admin-panel button { width:100%; }
+
+  /* Asegurar que no hayan elementos con nowrap que provoquen overflow */
+  * { -webkit-overflow-scrolling: touch; }
+}
+
+/* Optional: si quieres forzar una caja interna centrada con max-width en tablet/phone */
+@media (max-width: 900px) {
+  .promos-detailed-grid, #favoritesContainer, #catalogContainer {
+    margin-left: 8px;
+    margin-right: 8px;
+  }
+}
