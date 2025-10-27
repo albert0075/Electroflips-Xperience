@@ -248,7 +248,7 @@ function renderHomeExtras() {
   }
 
   // Promos detalladas: recuadros grandes con imagen, título, texto, badges y producto objetivo si existe
-  promosContainer.innerHTML = '';
+   promosContainer.innerHTML = '';
   if (!sitePromos || sitePromos.length === 0) {
     promosContainer.innerHTML = '<p>No hay promociones configuradas.</p>';
   } else {
@@ -256,13 +256,21 @@ function renderHomeExtras() {
     grid.className = 'promos-detailed-grid';
 
     sitePromos.forEach(pr => {
-      // Resolver nombre del producto objetivo si existe
       const targetName = pr.targetProductId ? (PRODUCTS.find(p => String(p.id) === String(pr.targetProductId))?.nombre || pr.targetProductId) : '';
 
       const card = document.createElement('div');
       card.className = 'promo-detailed-card';
 
-      // Construir innerHTML (pr.image, pr.title, pr.text, pr.percent, pr.minItems)
+      // Build description HTML: prefer descripcion[] as <ul>, otherwise text as <p>
+      let descriptionHtml = '';
+      if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
+        descriptionHtml = '<ul class="promo-detailed-list" style="margin:0 0 0.2rem 1.1rem;padding-left:0;">' +
+          pr.descripcion.map(i => `<li style="margin:0.18rem 0;">${htmlEscape(i)}</li>`).join('') +
+          '</ul>';
+      } else {
+        descriptionHtml = `<p class="promo-detailed-text">${htmlEscape(pr.text || '')}</p>`;
+      }
+
       card.innerHTML = `
         <div class="promo-detailed-thumb">
           <img src="${pr.image || 'images/promo-placeholder.png'}" alt="${htmlEscape(pr.title)}">
@@ -275,7 +283,7 @@ function renderHomeExtras() {
               ${pr.minItems ? `<span class="badge minitems">min ${Number(pr.minItems)}</span>` : ''}
             </div>
           </div>
-          <p class="promo-detailed-text">${htmlEscape(pr.text)}</p>
+          ${descriptionHtml}
           ${pr.targetProductId ? `<div class="promo-target">Producto objetivo: <strong>${htmlEscape(targetName)}</strong></div>` : ''}
           <div class="promo-detailed-actions">
             <button class="btn" onclick="applySitePromoAndOpen('${pr.id}')">Ver en catálogo</button>
@@ -299,6 +307,13 @@ function htmlEscape(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+function parseDescriptionToArray(str) {
+  if (str === undefined || str === null) return [];
+  return String(str)
+    .split(';')
+    .map(s => s.trim())
+    .filter(Boolean);
 }
 
 /* Aplica promo y abre catálogo; scroll al producto si targetProductId existe */
@@ -666,12 +681,21 @@ function renderPromosAdmin() {
     item.style.background = '#232526';
     item.style.borderRadius = '8px';
     item.style.marginBottom = '0.6rem';
+
+    // Preferir descripcion[] si existe, sino usar text
+    let descPreview = '';
+    if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
+      descPreview = pr.descripcion.join(' • ');
+    } else {
+      descPreview = pr.text || '';
+    }
+
     item.innerHTML = `
       <div style="display:flex;gap:0.6rem;align-items:center;">
         ${pr.image ? `<img src="${pr.image}" alt="${pr.title}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;">` : ''}
         <div>
           <strong>${pr.title}</strong>
-          <div style="color:#cbeee0;">${pr.text}</div>
+          <div style="color:#cbeee0; max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${htmlEscape(descPreview)}</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;">
@@ -686,16 +710,18 @@ function renderPromosAdmin() {
 function savePromoFromAdmin() {
   const id = document.getElementById('promoId').value || String(Date.now());
   const title = document.getElementById('promoTitle').value.trim();
-  const text = document.getElementById('promoText').value.trim();
+  const textRaw = document.getElementById('promoText').value.trim();
   const minItems = Number(document.getElementById('promoMinItems').value) || 0;
   const percent = Number(document.getElementById('promoPercent').value) || 0;
   const applyTo = document.getElementById('promoApplyTo').value || 'all';
   const targetProductId = document.getElementById('promoTargetProduct') ? document.getElementById('promoTargetProduct').value.trim() : '';
   const image = document.getElementById('promoImage') ? document.getElementById('promoImage').value.trim() : '';
 
-  if (!title || !text) { alert('Título y texto son requeridos.'); return; }
+  if (!title || !textRaw) { alert('Título y texto son requeridos.'); return; }
 
-  const promoObj = { id, title, text, minItems, percent, applyTo, targetProductId };
+  const descripcionArray = parseDescriptionToArray(textRaw);
+
+  const promoObj = { id, title, text: textRaw, descripcion: descripcionArray, minItems, percent, applyTo, targetProductId };
   if (image) promoObj.image = image;
 
   const updated = sitePromos.filter(p => String(p.id) !== String(id)).concat([promoObj]);
@@ -725,7 +751,12 @@ function editPromoForm(id) {
   if (!pr) return;
   document.getElementById('promoId').value = pr.id || '';
   document.getElementById('promoTitle').value = pr.title || '';
-  document.getElementById('promoText').value = pr.text || '';
+  // Si existe pr.descripcion (array) lo convertimos a string separado por '; '
+  if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
+    document.getElementById('promoText').value = pr.descripcion.join('; ');
+  } else {
+    document.getElementById('promoText').value = pr.text || '';
+  }
   document.getElementById('promoMinItems').value = pr.minItems || '';
   document.getElementById('promoPercent').value = pr.percent || '';
   document.getElementById('promoApplyTo').value = pr.applyTo || 'all';
@@ -1106,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Error guardando título. Revisa la consola.');
       });
     };
-     // --- Insertar dentro de document.addEventListener('DOMContentLoaded', ...) ---
+// --- Insertar dentro de document.addEventListener('DOMContentLoaded', ...) ---
 // Detectar dispositivo / ancho y agregar clase al <html> para estilos específicos
 (function setupMobileClass(){
   function updateMobileClass() {
@@ -1123,7 +1154,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__mobileClassTimeout = setTimeout(updateMobileClass, 120);
   });
 })();
-     // --- Mobile sidebar toggle + sync brand neon text ---
+
+// --- Mobile sidebar toggle + sync brand neon text ---
 // Pegar dentro de DOMContentLoaded o justo después de que el DOM haya cargado.
 
 (function mobileNavSetup(){
@@ -1191,5 +1223,103 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === modal) closeProductModal();
     });
   }
-
 });
+/* Floating bubbles behavior: actualizar contador, abrir carrito y enviar a WhatsApp */
+
+// Actualiza contador del badge del botón carrito
+function updateCartBubble() {
+  const badge = document.getElementById('cartBubbleBadge');
+  if (!badge) return;
+  const count = cart.reduce((sum, it) => sum + (Number(it.cantidad) || 0), 0);
+  badge.textContent = count;
+  if (count <= 0) {
+    badge.style.display = 'none';
+  } else {
+    badge.style.display = 'inline-flex';
+  }
+}
+
+// Acción al pulsar el bubble del carrito: muestra la sección carrito y hace scroll
+function cartBubbleHandler() {
+  showSection('carrito');
+  // pequeño highlight
+  const cont = document.getElementById('cartContainer');
+  if (cont) {
+    cont.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// Reemplaza/añade esta función en app.js (dentro de DOMContentLoaded o donde binds estén definidos).
+// Nuevo comportamiento: botón WhatsApp -> contacto directo (mensaje genérico), no depende del carrito.
+
+function whatsappBubbleHandler() {
+  const phone = "573243052782"; // tu número (sin + ni 00), ajusta si quieres otro
+  // Mensaje de contacto por defecto (puedes cambiar el texto)
+  const defaultMessage = "¡Hola! Me interesa recibir información sobre ElectroFlips Xperience. ¿Me ayudas, por favor?";
+  const encodedDefault = encodeURIComponent(defaultMessage);
+
+  // Abre chat de WhatsApp con el mensaje genérico (no requiere items en carrito)
+  window.open(`https://wa.me/${phone}?text=${encodedDefault}`, "_blank");
+}
+
+/* --- Opcional: si prefieres ofrecer al usuario la opción de incluir el carrito
+     (no obligatorio). Descomenta la versión siguiente y comenta la anterior. ---
+function whatsappBubbleHandler() {
+  const phone = "573243052782";
+  const defaultMessage = "¡Hola! Me interesa recibir información sobre ElectroFlips Xperience. ¿Me ayudas, por favor?";
+  const encodedDefault = encodeURIComponent(defaultMessage);
+
+  // Si el carrito tiene items, preguntar si desea incluirlo; si no, abrir contacto directo.
+  const totalItems = cart.reduce((s, it) => s + (Number(it.cantidad) || 0), 0);
+  if (totalItems > 0) {
+    if (confirm('Tienes artículos en el carrito. ¿Quieres incluir el resumen del carrito en el mensaje de WhatsApp?')) {
+      let msg = "¡Hola! Quisiera confirmar mi pedido:%0A";
+      cart.forEach(p => {
+        msg += `- ${p.nombre} x ${p.cantidad} (${precioCOP(p.precio * p.cantidad)})%0A`;
+      });
+      msg += `%0APor favor indícame cómo proceder.`;
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+      return;
+    }
+  }
+  window.open(`https://wa.me/${phone}?text=${encodedDefault}`, "_blank");
+}
+*/
+
+ // Asegúrate de que el binding del botón aún existe; si no, re-encuéntralo y vuelve a enlazar:
+ const wsBtn = document.getElementById('whatsappBubbleBtn');
+ if (wsBtn) {
+   // Quitar handler anterior (si existiera) y enlazar el nuevo
+   wsBtn.removeEventListener?.('click', whatsappBubbleHandler); // remove if supported
+   wsBtn.addEventListener('click', whatsappBubbleHandler);
+ }
+
+// bind botones (ejecutar dentro de DOMContentLoaded)
+(function bindFloatingBubbles() {
+  const cartBtn = document.getElementById('cartBubbleBtn');
+  const wsBtn = document.getElementById('whatsappBubbleBtn');
+
+  if (cartBtn) cartBtn.addEventListener('click', cartBubbleHandler);
+  if (wsBtn) wsBtn.addEventListener('click', whatsappBubbleHandler);
+
+  // inicializar contador al cargar
+  updateCartBubble();
+
+  // Exponer la función global para otros puntos si lo necesitas
+  window.updateCartBubble = updateCartBubble;
+})();
+
+// Recomendación: llamar updateCartBubble() desde puntos donde cambie el carrito:
+// - al final de addToCart (después de modificar cart) -> ya en tu addToCart() agrega: updateCartBubble();
+// - al final de removeFromCart / changeQty / finalizePurchase -> también llamar updateCartBubble();
+// - y también al final de renderCart() para sincronizar visualmente.
+//
+// Si prefieres que lo inserte por ti, pega la línea updateCartBubble(); justo al final de estas funciones:
+// addToCart (después de renderCart())
+// removeFromCart (después de renderCart())
+// changeQty (después de renderCart())
+// renderCart (al final de la función)
+//
+// Ejemplo mínimo que puedes añadir dentro de renderCart() al final:
+//// updateCartBubble();
+
