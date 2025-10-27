@@ -1323,3 +1323,44 @@ function whatsappBubbleHandler() {
 // Ejemplo mínimo que puedes añadir dentro de renderCart() al final:
 //// updateCartBubble();
 
+/* --- Snippet: ajustar layout de promos en cambios de viewport --- */
+/* Pegar dentro de DOMContentLoaded (o al final de app.js); no reemplaza nada existente. */
+(function ensureCompactPromosOnMobile(){
+  function updateLayout() {
+    const isMobile = window.matchMedia('(max-width:720px)').matches;
+    document.documentElement.classList.toggle('compact-promos', isMobile);
+
+    // Si estamos en la sección inicio, re-renderizar la parte de extras para que use las clases nuevas
+    // (renderHomeExtras ya aplica las tarjetas; esto fuerza repaint si es necesario)
+    const isInicioActive = document.querySelector('#inicio.active') !== null;
+    if (isInicioActive) {
+      try { renderHomeExtras(); } catch(e){ /* no bloquear si no existe */ }
+    }
+  }
+
+  updateLayout();
+  let t;
+  window.addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(updateLayout, 120);
+  });
+
+  // observar cambios de promos (si se actualizan desde admin) y re-aplicar layout en móviles
+  const promosContainer = document.getElementById('promosContainer');
+  if (promosContainer) {
+    const mo = new MutationObserver(() => {
+      if (window.matchMedia('(max-width:720px)').matches) {
+        // limitar reflows
+        clearTimeout(t);
+        t = setTimeout(() => {
+          // asegurar que el contenido respete las reglas CSS
+          promosContainer.querySelectorAll('.promo-detailed-card').forEach(card => {
+            card.style.maxWidth = '100%';
+            card.style.boxSizing = 'border-box';
+          });
+        }, 80);
+      }
+    });
+    mo.observe(promosContainer, { childList: true, subtree: true });
+  }
+})();
