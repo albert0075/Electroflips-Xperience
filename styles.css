@@ -624,9 +624,7 @@ footer {
     align-items: stretch;
   }
   .promo-detailed-thumb { width:100%; height:180px; }
-
 }
-
 /* --- Ajustes responsivos adicionales para móviles y tablets --- */
 /* Pegar al final de styles.css */
 
@@ -687,6 +685,7 @@ footer {
 html.is-mobile .brand-neon { display: none; }
 html.is-mobile .nav-links { display: none; }
 html.is-mobile .logo-nav { height:58px; }
+
 
 /* --- Mobile sidebar / hamburger --- */
 .mobile-hamburger {
@@ -796,4 +795,79 @@ html.is-mobile .logo-nav { height:58px; }
   .nav-right { gap: 8px; } /* adjust spacing */
   /* If you want brandNeon in header hidden on mobile (optional):
      .brand-neon { display: none; } */
+}
+
+/* Floating bubbles (bottom-right stacked) */
+#floatBubbles {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 140;
+  pointer-events: none; /* container non-interactive to let buttons handle events */
+}
+.fab {
+  pointer-events: auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(90deg,#00eaff,#00ff85);
+  color: #0e1618;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+  position: relative;
+}
+.fab:active { transform: scale(0.96); }
+.fab-cart { background: linear-gradient(90deg,#ffd166,#ff7ab6); color:#231f20; }
+.fab-ws { background: linear-gradient(90deg,#25D366,#00bfa5); color:#fff; }
+
+/* badge on cart */
+.fab-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: #ff3b3b;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+
+/* small screens adjust */
+@media (max-width: 720px) {
+  #floatBubbles { right: 12px; bottom: 14px; gap:10px; }
+  .fab { width:52px; height:52px; }
+  .fab-badge { top:-5px; right:-5px; min-width:18px; height:18px; font-size:11px; }
+}
+
+/* optional pulse for WhatsApp bubble to draw attention */
+.fab-ws::after {
+  content: "";
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37,211,102,0.12) 0%, rgba(37,211,102,0) 60%);
+  animation: pulseWs 2.6s infinite;
+  z-index: -1;
+  transform: scale(1);
+}
+@keyframes pulseWs {
+  0% { transform: scale(0.9); opacity: 1; }
+  70% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
 }
