@@ -180,6 +180,7 @@
               <input type="checkbox" id="adminFeatured"/>
               Marcar como favorito (mostrar icono en inicio)
             </label>
+            <input type="number" id="adminStock" placeholder="Stock (ej. 10)" min="0" />
             <button type="submit" class="btn">Guardar Producto</button>
           </form>
 
@@ -198,6 +199,8 @@
                 <input type="checkbox" id="editFeatured"/>
                 Marcar como favorito (mostrar icono en inicio)
               </label>
+              <input type="number" id="editStock" placeholder="Stock (ej. 10)" min="0" />
+
               <button type="submit" class="btn">Actualizar Producto</button>
               <button type="button" class="btn" id="editCancelBtn" style="background:#bbb; color:#222;">Cancelar</button>
             </form>
@@ -261,6 +264,7 @@
           <div id="modalPromoTag" style="color:#00ff85;font-weight:bold;margin-bottom:0.4rem;"></div>
           <div id="modalDesc"></div>
           <div id="modalPrice" style="margin-top:0.6rem;font-size:1.1rem;color:#00ff85;font-weight:bold;"></div>
+          <div id="modalStock" style="margin-top:0.4rem;font-weight:bold;color:#ffb3b3;"></div>
           <div style="margin-top:0.8rem;">
             <button id="modalBuyBtn" class="btn">Comprar</button>
             <button class="btn" style="background:#bbb;color:#222;margin-left:0.6rem;" onclick="closeProductModal()">Cerrar</button>
