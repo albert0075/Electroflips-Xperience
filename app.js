@@ -1,11 +1,7 @@
 /* app.js - archivo completo corregido y funcional
-   - Incluye: catálogo, inicio (favoritos + promos detalladas), carrito, panel admin completo,
-     CRUD productos, Combo 3x2, promos del sitio con imagen, descuentos bulk,
-     creación/edición tolerante con campos opcionales (cleanPayload),
-     UI admin organizada por categoría y botones compactos.
-   - Este archivo contiene además la renderización de promos en recuadros grandes
-     para mostrar toda la información (imagen, título, texto, badges, producto objetivo).
-   - No se elimina nada funcional previamente implementado.
+   - Ahora soporta "stock" numérico (Option A). Si stock <= 0 → Agotado.
+   - Compatibilidad: si no existe stock se respetará prod.agotado si existe.
+   - Añade campos stock en admin/create/edit.
 */
 
 /* --- Ajusta ADMINS si no usarás Firebase Auth (demo local) --- */
@@ -135,6 +131,38 @@ function showSection(id) {
   if (id === 'admin') renderAdminPanel();
 }
 
+/* --- Utilidad de precios --- */
+function precioCOP(valor) {
+  return "$" + Number(valor || 0).toLocaleString('es-CO') + " COP";
+}
+
+/* --- Helpers para escapar y parsear --- */
+function htmlEscape(str) {
+  if (!str && str !== 0) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function parseDescriptionToArray(str) {
+  if (str === undefined || str === null) return [];
+  return String(str)
+    .split(';')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+/* --- Detectar si un producto está agotado (Option A: usar stock numérico) --- */
+function isSoldOut(prod) {
+  // Priorizar stock numérico si existe; si no existe, mantener compatibilidad con prod.agotado (boolean)
+  if (typeof prod.stock !== 'undefined' && prod.stock !== null) {
+    return Number(prod.stock) <= 0;
+  }
+  return Boolean(prod.agotado);
+}
+
 /* --- Render catálogo --- */
 function renderCatalog() {
   const container = document.getElementById('catalogContainer');
@@ -197,24 +225,28 @@ function renderCatalog() {
         ? `<ul class="desc-list">${prod.descripcion.map(d => `<li>${d}</li>`).join('')}</ul>`
         : `<p>${prod.descripcion || ''}</p>`;
 
+      const soldOut = isSoldOut(prod);
+      const stockInfo = (typeof prod.stock !== 'undefined' && prod.stock !== null) ? `<div style="margin-bottom:0.4rem;color:#ddd;font-size:0.9rem;">Stock: ${Number(prod.stock)}</div>` : '';
+      const agotadoHtml = soldOut ? `<div><span class="agotado-badge">Agotado</span></div>` : '';
+      const buyButton = soldOut
+        ? `<button class="btn" disabled style="opacity:0.5;cursor:not-allowed;">Agotado</button>`
+        : `<button class="btn" onclick="addToCart('${prod.id}')">Comprar</button>`;
+
       card.innerHTML = `
-        <img class="product-image" src="${prod.imagen || 'images/placeholder.png'}" alt="${prod.nombre}" onclick="showProductDetails('${prod.id}')" style="cursor:pointer">
+        <img class="product-image" src="${prod.imagen || 'images/placeholder.png'}" alt="${htmlEscape(prod.nombre)}" onclick="showProductDetails('${prod.id}')" style="cursor:pointer">
         ${promoHtml}
-        <h3 onclick="showProductDetails('${prod.id}')" style="cursor:pointer">${prod.nombre}</h3>
+        ${agotadoHtml}
+        <h3 onclick="showProductDetails('${prod.id}')" style="cursor:pointer">${htmlEscape(prod.nombre)}</h3>
         ${descHtml}
         ${precioHtml}
-        <button class="btn" onclick="addToCart('${prod.id}')">Comprar</button>
+        ${stockInfo}
+        ${buyButton}
       `;
       grid.appendChild(card);
     });
 
     container.appendChild(grid);
   });
-}
-
-/* --- Utilidad de precios --- */
-function precioCOP(valor) {
-  return "$" + Number(valor || 0).toLocaleString('es-CO') + " COP";
 }
 
 /* --- Inicio: Favoritos y Promos (detalladas) --- */
@@ -298,24 +330,6 @@ function renderHomeExtras() {
   }
 }
 
-// small helper to escape HTML inserted into innerHTML (avoid basic XSS from admin inputs)
-function htmlEscape(str) {
-  if (!str && str !== 0) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-function parseDescriptionToArray(str) {
-  if (str === undefined || str === null) return [];
-  return String(str)
-    .split(';')
-    .map(s => s.trim())
-    .filter(Boolean);
-}
-
 /* Aplica promo y abre catálogo; scroll al producto si targetProductId existe */
 function applySitePromoAndOpen(promoId) {
   const pr = sitePromos.find(p => String(p.id) === String(promoId));
@@ -346,6 +360,7 @@ function showProductDetails(id) {
   const price = document.getElementById('modalPrice');
   const buyBtn = document.getElementById('modalBuyBtn');
   const promoTag = document.getElementById('modalPromoTag');
+  const modalStock = document.getElementById('modalStock');
 
   if (img) img.src = prod.imagen || 'images/placeholder.png';
   if (title) title.textContent = prod.nombre || '';
@@ -353,11 +368,32 @@ function showProductDetails(id) {
   if (price) price.innerHTML = prod.oferta ? `<span class="oferta">Oferta: ${precioCOP(prod.oferta)}</span> <small style="text-decoration:line-through;color:#aaa;margin-left:0.6rem;">${precioCOP(prod.precio)}</small>` : `${precioCOP(prod.precio)}`;
   if (promoTag) promoTag.textContent = prod.promo || '';
 
+  const soldOut = isSoldOut(prod);
+  if (modalStock) {
+    if (typeof prod.stock !== 'undefined' && prod.stock !== null) {
+      modalStock.textContent = soldOut ? 'Sin stock' : `Stock disponible: ${Number(prod.stock)}`;
+      modalStock.style.color = soldOut ? '#ffb3b3' : '#00ff85';
+    } else {
+      modalStock.textContent = soldOut ? 'No disponible' : '';
+      modalStock.style.color = soldOut ? '#ffb3b3' : '#00ff85';
+    }
+  }
+
   if (buyBtn) {
-    buyBtn.onclick = function () {
-      addToCart(prod.id);
-      closeProductModal();
-    };
+    if (soldOut) {
+      buyBtn.disabled = true;
+      buyBtn.style.opacity = '0.5';
+      buyBtn.onclick = () => showToast('Producto agotado.');
+      buyBtn.textContent = 'Agotado';
+    } else {
+      buyBtn.disabled = false;
+      buyBtn.style.opacity = '';
+      buyBtn.textContent = 'Comprar';
+      buyBtn.onclick = function () {
+        addToCart(prod.id);
+        closeProductModal();
+      };
+    }
   }
 
   modal.classList.add('open');
@@ -403,6 +439,10 @@ function addToCart(id) {
     showToast('Producto no encontrado.');
     return;
   }
+  if (isSoldOut(prod)) {
+    showToast('Producto agotado.');
+    return;
+  }
   const precioFinal = prod.oferta ? prod.oferta : prod.precio;
   const existing = cart.find(p => String(p.id) === String(id));
   if (existing) {
@@ -412,17 +452,20 @@ function addToCart(id) {
   }
   showToast('Producto agregado al carrito');
   renderCart();
+  updateCartBubble();
 }
 function changeQty(id, delta) {
   const item = cart.find(p => String(p.id) === String(id));
   if (item) {
     item.cantidad = Math.max(1, item.cantidad + delta);
     renderCart();
+    updateCartBubble();
   }
 }
 function removeFromCart(id) {
   cart = cart.filter(p => String(p.id) !== String(id));
   renderCart();
+  updateCartBubble();
 }
 function renderCart() {
   const container = document.getElementById('cartContainer');
@@ -432,6 +475,7 @@ function renderCart() {
     container.innerHTML = '<p style="text-align:center;">El carrito está vacío.</p>';
     document.getElementById('cartTotal').innerText = '';
     document.getElementById('finalizeBtn').style.display = 'none';
+    updateCartBubble();
     return;
   }
 
@@ -500,6 +544,7 @@ function renderCart() {
   const totalHtml = `${comboMsg}${bulkMsg}Total: ${precioCOP(baseTotal)}`;
   document.getElementById('cartTotal').innerHTML = totalHtml;
   document.getElementById('finalizeBtn').style.display = 'inline-block';
+  updateCartBubble();
 }
 
 function finalizePurchase() {
@@ -556,6 +601,7 @@ function finalizePurchase() {
   cart = [];
   renderCart();
   showToast('Redirigiendo a WhatsApp...');
+  updateCartBubble();
 }
 
 /* ------------------ ADMIN ------------------ */
@@ -820,7 +866,7 @@ function renderAdminProducts() {
           <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${prod.nombre}</strong>
           <small style="display:block;margin-top:0.3rem;color:#cbeee0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${Array.isArray(prod.descripcion) ? prod.descripcion.join(' • ') : (prod.descripcion || '')}</small>
           <div style="margin-top:0.4rem;font-weight:bold;">${precioCOP(prod.precio)} ${prod.oferta ? `<span style="color:#ff00cc;margin-left:0.6rem;">(Oferta ${precioCOP(prod.oferta)})</span>` : ''}</div>
-          <div style="margin-top:0.35rem;font-size:0.9rem;color:#ddd;">Pos: ${prod.order ?? '(sin)'}</div>
+          <div style="margin-top:0.35rem;font-size:0.9rem;color:#ddd;">Pos: ${prod.order ?? '(sin)'} — Stock: ${typeof prod.stock !== 'undefined' && prod.stock !== null ? Number(prod.stock) : '—'}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
           <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;">
@@ -852,8 +898,8 @@ function adminToggleFeatured(id, checked) {
     });
 }
 
-/* --- CRUD productos: crear/editar con campos opcionales --- */
-// Reemplaza adminAddProduct
+/* ========== CRUD productos: crear/editar con stock incluido (Option A) ========== */
+// Crear producto
 function adminAddProduct(e) {
   e.preventDefault();
   const nombreEl = document.getElementById('adminNombre');
@@ -876,12 +922,14 @@ function adminAddProduct(e) {
   const ofertaEl = document.getElementById('adminOferta');
   const promoEl = document.getElementById('adminPromo');
   const featuredEl = document.getElementById('adminFeatured');
+  const stockEl = document.getElementById('adminStock');
 
   const imagen = imagenEl ? imagenEl.value.trim() : undefined;
   const ofertaVal = ofertaEl ? ofertaEl.value.trim() : '';
   const oferta = ofertaVal !== '' ? Number(ofertaVal) : undefined;
   const promo = promoEl ? promoEl.value.trim() : undefined;
   const featured = !!(featuredEl && featuredEl.checked);
+  const stock = (stockEl && stockEl.value !== '') ? Number(stockEl.value) : undefined;
 
   const maxOrder = PRODUCTS.reduce((max, p) => {
     const o = Number(p.order ?? -Infinity);
@@ -897,6 +945,7 @@ function adminAddProduct(e) {
     oferta,
     promo,
     featured,
+    stock,
     order: maxOrder + 1
   });
 
@@ -911,16 +960,7 @@ function adminAddProduct(e) {
     });
 }
 
-function adminDeleteProduct(id) {
-  if (!confirm('¿Eliminar este producto?')) return;
-  productsRef.doc(id).delete()
-    .then(() => showToast('Producto eliminado correctamente.'))
-    .catch(err => {
-      console.error(err);
-      alert("Error eliminando producto.");
-    });
-}
-
+// Mostrar formulario de edición y precargar datos
 function adminEditProductForm(id) {
   const prod = PRODUCTS.find(p => String(p.id) === String(id));
   if (!prod) return;
@@ -933,9 +973,17 @@ function adminEditProductForm(id) {
   document.getElementById('editOferta').value = prod.oferta || '';
   document.getElementById('editPromo').value = prod.promo || '';
   document.getElementById('editFeatured').checked = !!prod.featured;
+  document.getElementById('editStock').value = typeof prod.stock !== 'undefined' && prod.stock !== null ? Number(prod.stock) : '';
+
   document.getElementById('editFormBox').style.display = '';
 }
 
+// Cancelar edición
+function adminCancelEdit() {
+  document.getElementById('editFormBox').style.display = 'none';
+}
+
+// Actualizar producto
 function adminEditProduct(e) {
   e.preventDefault();
   const id = document.getElementById('editId').value;
@@ -949,6 +997,7 @@ function adminEditProduct(e) {
   const ofertaEl = document.getElementById('editOferta');
   const promoEl = document.getElementById('editPromo');
   const featuredEl = document.getElementById('editFeatured');
+  const stockEl = document.getElementById('editStock');
 
   const nombre = nombreEl ? nombreEl.value.trim() : undefined;
   const descripcionRaw = descEl ? descEl.value : undefined;
@@ -960,8 +1009,9 @@ function adminEditProduct(e) {
   const oferta = ofertaVal !== '' ? Number(ofertaVal) : undefined;
   const promo = promoEl ? promoEl.value.trim() : undefined;
   const featured = typeof featuredEl !== 'undefined' ? !!featuredEl.checked : undefined;
+  const stock = (stockEl && stockEl.value !== '') ? Number(stockEl.value) : undefined;
 
-  const updateObj = cleanPayload({ nombre, descripcion, precio, categoria, imagen, oferta, promo, featured });
+  const updateObj = cleanPayload({ nombre, descripcion, precio, categoria, imagen, oferta, promo, featured, stock, updatedAt: Date.now() });
 
   if (Object.keys(updateObj).length === 0) {
     showToast('No hay cambios para guardar.');
@@ -980,12 +1030,18 @@ function adminEditProduct(e) {
     });
 }
 
-
-function adminCancelEdit() {
-  document.getElementById('editFormBox').style.display = 'none';
+// Eliminar producto
+function adminDeleteProduct(id) {
+  if (!confirm('¿Eliminar este producto?')) return;
+  productsRef.doc(id).delete()
+    .then(() => showToast('Producto eliminado correctamente.'))
+    .catch(err => {
+      console.error(err);
+      alert("Error eliminando producto.");
+    });
 }
 
-/* --- Reordenamiento: Up / Down y Normalizar --- */
+/* ========== Reordenamiento: Up / Down y Normalizar ========== */
 function adminMoveUp(id) {
   const idx = PRODUCTS.findIndex(p => String(p.id) === String(id));
   if (idx <= 0) return;
@@ -1031,7 +1087,7 @@ function adminNormalizeOrder() {
     });
 }
 
-/* --- Site title save/load (neón) --- */
+/* ========== Site title / Bulk ========== */
 function loadSiteTitleIntoAdmin() {
   siteConfigRef.get().then(doc => {
     if (doc && doc.exists) {
@@ -1046,7 +1102,6 @@ function saveSiteTitle(newTitle) {
   return siteConfigRef.set({ siteTitle: String(newTitle) });
 }
 
-/* --- Bulk discount load/save into admin --- */
 function loadBulkIntoAdmin() {
   const enabled = document.getElementById('bulkEnabled');
   const minInput = document.getElementById('bulkMinItems');
@@ -1137,77 +1192,6 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Error guardando título. Revisa la consola.');
       });
     };
-// --- Insertar dentro de document.addEventListener('DOMContentLoaded', ...) ---
-// Detectar dispositivo / ancho y agregar clase al <html> para estilos específicos
-(function setupMobileClass(){
-  function updateMobileClass() {
-    const isMobile = window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
-    if (isMobile) document.documentElement.classList.add('is-mobile');
-    else document.documentElement.classList.remove('is-mobile');
-  }
-  // Ejecutar al inicio
-  updateMobileClass();
-  // Escuchar cambios de tamaño (rotación o redimension)
-  window.addEventListener('resize', () => {
-    // throttle simple
-    clearTimeout(window.__mobileClassTimeout);
-    window.__mobileClassTimeout = setTimeout(updateMobileClass, 120);
-  });
-})();
-
-// --- Mobile sidebar toggle + sync brand neon text ---
-// Pegar dentro de DOMContentLoaded o justo después de que el DOM haya cargado.
-
-(function mobileNavSetup(){
-  const hamburger = document.getElementById('mobileHamburger');
-  const overlay = document.getElementById('mobileNavOverlay');
-  const sidebar = document.getElementById('mobileSidebar');
-  const closeBtn = document.getElementById('mobileCloseBtn');
-  const brandDesktop = document.getElementById('brandNeon');
-  const brandMobile = document.getElementById('brandNeonMobile');
-
-  function openMobileNav() {
-    if (overlay) overlay.classList.add('visible');
-    if (sidebar) sidebar.classList.add('open');
-    if (overlay) overlay.setAttribute('aria-hidden', 'false');
-    if (sidebar) sidebar.setAttribute('aria-hidden', 'false');
-    document.documentElement.classList.add('mobile-nav-open');
-    document.body.style.overflow = 'hidden';
-  }
-  function closeMobileNav() {
-    if (overlay) overlay.classList.remove('visible');
-    if (sidebar) sidebar.classList.remove('open');
-    if (overlay) overlay.setAttribute('aria-hidden', 'true');
-    if (sidebar) sidebar.setAttribute('aria-hidden', 'true');
-    document.documentElement.classList.remove('mobile-nav-open');
-    document.body.style.overflow = '';
-  }
-
-  // Bind events if elements exist
-  if (hamburger) hamburger.addEventListener('click', openMobileNav);
-  if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
-  if (overlay) overlay.addEventListener('click', closeMobileNav);
-  // close with Escape key
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMobileNav(); });
-
-  // Sync brand neon text (initial + when site title changes from admin)
-  function syncBrandText() {
-    if (!brandMobile) return;
-    if (brandDesktop) brandMobile.textContent = brandDesktop.textContent || brandMobile.textContent;
-  }
-  // initial
-  syncBrandText();
-
-  // observe brandDesktop changes (so when admin saves title it's reflected)
-  if (brandDesktop && brandMobile) {
-    const mo = new MutationObserver(syncBrandText);
-    mo.observe(brandDesktop, { childList: true, characterData: true, subtree: true });
-  }
-
-  // expose close function globally so markup onclick (closeMobileNav()) works
-  window.closeMobileNav = closeMobileNav;
-  window.openMobileNav = openMobileNav;
-})();
   }
 
   const saveBulkBtn = document.getElementById('saveBulkBtn');
@@ -1223,10 +1207,81 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === modal) closeProductModal();
     });
   }
-});
-/* Floating bubbles behavior: actualizar contador, abrir carrito y enviar a WhatsApp */
 
-// Actualiza contador del badge del botón carrito
+  // Mobile sidebar + hamburger
+  (function mobileNavSetup(){
+    const hamburger = document.getElementById('mobileHamburger');
+    const overlay = document.getElementById('mobileNavOverlay');
+    const sidebar = document.getElementById('mobileSidebar');
+    const closeBtn = document.getElementById('mobileCloseBtn');
+    const brandDesktop = document.getElementById('brandNeon');
+    const brandMobile = document.getElementById('brandNeonMobile');
+
+    function openMobileNav() {
+      if (overlay) overlay.classList.add('visible');
+      if (sidebar) sidebar.classList.add('open');
+      if (overlay) overlay.setAttribute('aria-hidden', 'false');
+      if (sidebar) sidebar.setAttribute('aria-hidden', 'false');
+      document.documentElement.classList.add('mobile-nav-open');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeMobileNav() {
+      if (overlay) overlay.classList.remove('visible');
+      if (sidebar) sidebar.classList.remove('open');
+      if (overlay) overlay.setAttribute('aria-hidden', 'true');
+      if (sidebar) sidebar.setAttribute('aria-hidden', 'true');
+      document.documentElement.classList.remove('mobile-nav-open');
+      document.body.style.overflow = '';
+    }
+
+    if (hamburger) hamburger.addEventListener('click', openMobileNav);
+    if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
+    if (overlay) overlay.addEventListener('click', closeMobileNav);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMobileNav(); });
+
+    function syncBrandText() {
+      if (!brandMobile) return;
+      if (brandDesktop) brandMobile.textContent = brandDesktop.textContent || brandMobile.textContent;
+    }
+    syncBrandText();
+
+    if (brandDesktop && brandMobile) {
+      const mo = new MutationObserver(syncBrandText);
+      mo.observe(brandDesktop, { childList: true, characterData: true, subtree: true });
+    }
+
+    window.closeMobileNav = closeMobileNav;
+    window.openMobileNav = openMobileNav;
+  })();
+
+  // Floating bubbles behavior
+  const cartBtn = document.getElementById('cartBubbleBtn');
+  const wsBtn = document.getElementById('whatsappBubbleBtn');
+
+  if (cartBtn) cartBtn.addEventListener('click', () => { showSection('carrito'); const cont = document.getElementById('cartContainer'); if (cont) cont.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  if (wsBtn) wsBtn.addEventListener('click', () => {
+    const phone = "573243052782";
+    const defaultMessage = "¡Hola! Me interesa recibir información sobre ElectroFlips Xperience. ¿Me ayudas, por favor?";
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(defaultMessage)}`, "_blank");
+  });
+
+  updateCartBubble();
+
+  // Detect device
+  (function setupMobileClass(){
+    function updateMobileClass() {
+      const isMobile = window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
+      if (isMobile) document.documentElement.classList.add('is-mobile');
+      else document.documentElement.classList.remove('is-mobile');
+    }
+    updateMobileClass();
+    window.addEventListener('resize', () => {
+      clearTimeout(window.__mobileClassTimeout);
+      window.__mobileClassTimeout = setTimeout(updateMobileClass, 120);
+    });
+  })();
+});
+/* Floating bubbles: actualizar contador */
 function updateCartBubble() {
   const badge = document.getElementById('cartBubbleBadge');
   if (!badge) return;
@@ -1238,129 +1293,3 @@ function updateCartBubble() {
     badge.style.display = 'inline-flex';
   }
 }
-
-// Acción al pulsar el bubble del carrito: muestra la sección carrito y hace scroll
-function cartBubbleHandler() {
-  showSection('carrito');
-  // pequeño highlight
-  const cont = document.getElementById('cartContainer');
-  if (cont) {
-    cont.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
-
-// Reemplaza/añade esta función en app.js (dentro de DOMContentLoaded o donde binds estén definidos).
-// Nuevo comportamiento: botón WhatsApp -> contacto directo (mensaje genérico), no depende del carrito.
-
-function whatsappBubbleHandler() {
-  const phone = "573243052782"; // tu número (sin + ni 00), ajusta si quieres otro
-  // Mensaje de contacto por defecto (puedes cambiar el texto)
-  const defaultMessage = "¡Hola! Me interesa recibir información sobre ElectroFlips Xperience. ¿Me ayudas, por favor?";
-  const encodedDefault = encodeURIComponent(defaultMessage);
-
-  // Abre chat de WhatsApp con el mensaje genérico (no requiere items en carrito)
-  window.open(`https://wa.me/${phone}?text=${encodedDefault}`, "_blank");
-}
-
-/* --- Opcional: si prefieres ofrecer al usuario la opción de incluir el carrito
-     (no obligatorio). Descomenta la versión siguiente y comenta la anterior. ---
-function whatsappBubbleHandler() {
-  const phone = "573243052782";
-  const defaultMessage = "¡Hola! Me interesa recibir información sobre ElectroFlips Xperience. ¿Me ayudas, por favor?";
-  const encodedDefault = encodeURIComponent(defaultMessage);
-
-  // Si el carrito tiene items, preguntar si desea incluirlo; si no, abrir contacto directo.
-  const totalItems = cart.reduce((s, it) => s + (Number(it.cantidad) || 0), 0);
-  if (totalItems > 0) {
-    if (confirm('Tienes artículos en el carrito. ¿Quieres incluir el resumen del carrito en el mensaje de WhatsApp?')) {
-      let msg = "¡Hola! Quisiera confirmar mi pedido:%0A";
-      cart.forEach(p => {
-        msg += `- ${p.nombre} x ${p.cantidad} (${precioCOP(p.precio * p.cantidad)})%0A`;
-      });
-      msg += `%0APor favor indícame cómo proceder.`;
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
-      return;
-    }
-  }
-  window.open(`https://wa.me/${phone}?text=${encodedDefault}`, "_blank");
-}
-*/
-
- // Asegúrate de que el binding del botón aún existe; si no, re-encuéntralo y vuelve a enlazar:
- const wsBtn = document.getElementById('whatsappBubbleBtn');
- if (wsBtn) {
-   // Quitar handler anterior (si existiera) y enlazar el nuevo
-   wsBtn.removeEventListener?.('click', whatsappBubbleHandler); // remove if supported
-   wsBtn.addEventListener('click', whatsappBubbleHandler);
- }
-
-// bind botones (ejecutar dentro de DOMContentLoaded)
-(function bindFloatingBubbles() {
-  const cartBtn = document.getElementById('cartBubbleBtn');
-  const wsBtn = document.getElementById('whatsappBubbleBtn');
-
-  if (cartBtn) cartBtn.addEventListener('click', cartBubbleHandler);
-  if (wsBtn) wsBtn.addEventListener('click', whatsappBubbleHandler);
-
-  // inicializar contador al cargar
-  updateCartBubble();
-
-  // Exponer la función global para otros puntos si lo necesitas
-  window.updateCartBubble = updateCartBubble;
-})();
-
-// Recomendación: llamar updateCartBubble() desde puntos donde cambie el carrito:
-// - al final de addToCart (después de modificar cart) -> ya en tu addToCart() agrega: updateCartBubble();
-// - al final de removeFromCart / changeQty / finalizePurchase -> también llamar updateCartBubble();
-// - y también al final de renderCart() para sincronizar visualmente.
-//
-// Si prefieres que lo inserte por ti, pega la línea updateCartBubble(); justo al final de estas funciones:
-// addToCart (después de renderCart())
-// removeFromCart (después de renderCart())
-// changeQty (después de renderCart())
-// renderCart (al final de la función)
-//
-// Ejemplo mínimo que puedes añadir dentro de renderCart() al final:
-//// updateCartBubble();
-
-/* --- Snippet: ajustar layout de promos en cambios de viewport --- */
-/* Pegar dentro de DOMContentLoaded (o al final de app.js); no reemplaza nada existente. */
-(function ensureCompactPromosOnMobile(){
-  function updateLayout() {
-    const isMobile = window.matchMedia('(max-width:720px)').matches;
-    document.documentElement.classList.toggle('compact-promos', isMobile);
-
-    // Si estamos en la sección inicio, re-renderizar la parte de extras para que use las clases nuevas
-    // (renderHomeExtras ya aplica las tarjetas; esto fuerza repaint si es necesario)
-    const isInicioActive = document.querySelector('#inicio.active') !== null;
-    if (isInicioActive) {
-      try { renderHomeExtras(); } catch(e){ /* no bloquear si no existe */ }
-    }
-  }
-
-  updateLayout();
-  let t;
-  window.addEventListener('resize', () => {
-    clearTimeout(t);
-    t = setTimeout(updateLayout, 120);
-  });
-
-  // observar cambios de promos (si se actualizan desde admin) y re-aplicar layout en móviles
-  const promosContainer = document.getElementById('promosContainer');
-  if (promosContainer) {
-    const mo = new MutationObserver(() => {
-      if (window.matchMedia('(max-width:720px)').matches) {
-        // limitar reflows
-        clearTimeout(t);
-        t = setTimeout(() => {
-          // asegurar que el contenido respete las reglas CSS
-          promosContainer.querySelectorAll('.promo-detailed-card').forEach(card => {
-            card.style.maxWidth = '100%';
-            card.style.boxSizing = 'border-box';
-          });
-        }, 80);
-      }
-    });
-    mo.observe(promosContainer, { childList: true, subtree: true });
-  }
-})();
