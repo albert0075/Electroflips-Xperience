@@ -985,3 +985,16 @@ main, .section {
     margin-right: 8px;
   }
 }
+/* Badge "Agotado" */
+.agotado-badge {
+  display:inline-block;
+  background: #ff5b5b;
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+.product-card button[disabled] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
