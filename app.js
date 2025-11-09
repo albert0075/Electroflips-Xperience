@@ -1,32 +1,34 @@
-/* app.js - archivo completo corregido y funcional
-   - Ahora soporta "stock" numérico (Option A). Si stock <= 0 → Agotado.
-   - Compatibilidad: si no existe stock se respetará prod.agotado si existe.
-   - Añade campos stock en admin/create/edit.
+/* app.js - Archivo completo y organizado (versión corregida)
+   - He añadido las funciones administrativas faltantes (crear, editar, eliminar productos,
+     mostrar formulario de edición y cancelar edición, toggle agotado).
+   - Mantiene el resto de tu lógica original (promos, carrito, combo, bulk, UI).
+   - Reemplaza completamente tu app.js por este archivo.
 */
 
-/* --- Ajusta ADMINS si no usarás Firebase Auth (demo local) --- */
+/* ========== Config / Refs ========== */
+/* Credenciales demo (NO usar en producción) */
 const ADMINS = [
   { email: "flixalbert75@gmail.com", password: "220817" }
 ];
 
-/* --- Firestore referencias (db viene de index.html) --- */
+/* Firestore refs (db debe venir de index.html) */
 const productsRef = db.collection("products");
 const comboRef = db.collection("config").doc("combo3x2");
 const siteConfigRef = db.collection("config").doc("siteConfig");
 const bulkRef = db.collection("config").doc("bulkDiscount");
-const promosRef = db.collection("config").doc("sitePromos"); // documento con campo promos: [ ... ]
+const promosRef = db.collection("config").doc("sitePromos");
 
-/* --- Estado global --- */
+/* Estado global */
 let PRODUCTS = [];
 let cart = [];
 let isAdminAuthed = false;
 let adminEmail = null;
 let combo3x2 = { enabled: false, eligibles: [] };
 let bulkDiscount = { enabled: false, minItems: 4, percent: 20, applyTo: 'all' };
-let sitePromos = []; // array de promos administrables
-let currentPromo = null; // promo aplicada temporalmente al abrir catálogo
+let sitePromos = [];
+let currentPromo = null;
 
-/* --- Helper: limpiar payload antes de enviar a Firestore --- */
+/* ========== Helpers ========== */
 function cleanPayload(obj) {
   const out = {};
   Object.keys(obj).forEach(k => {
@@ -38,14 +40,45 @@ function cleanPayload(obj) {
   });
   return out;
 }
+function htmlEscape(str) {
+  if (!str && str !== 0) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function parseDescriptionToArray(str) {
+  if (str === undefined || str === null) return [];
+  return String(str)
+    .split(';')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+function precioCOP(valor) {
+  return "$" + Number(valor || 0).toLocaleString('es-CO') + " COP";
+}
 
-/* --- Inicialización: suscripciones en tiempo real --- */
+/* Toast helper (create if not exists) */
+function showToast(msg, timeout = 2200) {
+  let toast = document.getElementById('catalogFeedback');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'catalogFeedback';
+    toast.className = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.innerText = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), timeout);
+}
+
+/* ========== Realtime loaders ========== */
 function loadProductsRealtime() {
   productsRef.orderBy('order').onSnapshot(snapshot => {
     PRODUCTS = [];
-    snapshot.forEach(doc => {
-      PRODUCTS.push({ ...doc.data(), id: doc.id });
-    });
+    snapshot.forEach(doc => PRODUCTS.push({ ...doc.data(), id: doc.id }));
     PRODUCTS.sort((a, b) => {
       const ao = Number(a.order ?? Number.MAX_SAFE_INTEGER);
       const bo = Number(b.order ?? Number.MAX_SAFE_INTEGER);
@@ -63,10 +96,7 @@ function loadComboRealtime() {
   comboRef.onSnapshot(doc => {
     if (doc && doc.exists) {
       const data = doc.data() || {};
-      combo3x2 = {
-        enabled: Boolean(data.enabled),
-        eligibles: Array.isArray(data.eligibles) ? data.eligibles.map(String) : []
-      };
+      combo3x2 = { enabled: !!data.enabled, eligibles: Array.isArray(data.eligibles) ? data.eligibles.map(String) : [] };
     } else {
       combo3x2 = { enabled: false, eligibles: [] };
       comboRef.set({ enabled: false, eligibles: [] }).catch(() => {});
@@ -78,11 +108,8 @@ function loadComboRealtime() {
 
 function loadBulkRealtime() {
   bulkRef.onSnapshot(doc => {
-    if (doc && doc.exists) {
-      bulkDiscount = doc.data() || bulkDiscount;
-    } else {
-      bulkDiscount = { enabled: false, minItems: 4, percent: 20, applyTo: 'all' };
-    }
+    if (doc && doc.exists) bulkDiscount = doc.data() || bulkDiscount;
+    else bulkDiscount = { enabled: false, minItems: 4, percent: 20, applyTo: 'all' };
     if (isAdminAuthed) loadBulkIntoAdmin();
     renderCatalog();
   }, err => console.error("bulkDiscount onSnapshot error:", err));
@@ -114,14 +141,14 @@ function loadSiteTitle() {
   }).catch(err => console.error('Error cargando siteTitle:', err));
 }
 
-/* Ejecutar suscripciones */
+/* start realtime listeners */
 loadProductsRealtime();
 loadComboRealtime();
 loadBulkRealtime();
 loadPromosRealtime();
 if (typeof db !== 'undefined') loadSiteTitle();
 
-/* --- Navegación simple entre secciones --- */
+/* ========== Navigation ========== */
 function showSection(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(id);
@@ -131,54 +158,23 @@ function showSection(id) {
   if (id === 'admin') renderAdminPanel();
 }
 
-/* --- Utilidad de precios --- */
-function precioCOP(valor) {
-  return "$" + Number(valor || 0).toLocaleString('es-CO') + " COP";
-}
-
-/* --- Helpers para escapar y parsear --- */
-function htmlEscape(str) {
-  if (!str && str !== 0) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-function parseDescriptionToArray(str) {
-  if (str === undefined || str === null) return [];
-  return String(str)
-    .split(';')
-    .map(s => s.trim())
-    .filter(Boolean);
-}
-
-/* --- Detectar si un producto está agotado (Option A: usar stock numérico) --- */
-function isSoldOut(prod) {
-  // Priorizar stock numérico si existe; si no existe, mantener compatibilidad con prod.agotado (boolean)
-  if (typeof prod.stock !== 'undefined' && prod.stock !== null) {
-    return Number(prod.stock) <= 0;
-  }
-  return Boolean(prod.agotado);
-}
-
-/* --- Render catálogo --- */
+/* ========== Catalog Rendering ========== */
+/* Reemplaza únicamente la función renderCatalog en tu app.js por esta versión */
 function renderCatalog() {
   const container = document.getElementById('catalogContainer');
   if (!container) return;
   container.innerHTML = '';
 
-  // Banner de promo aplicada temporalmente
+  // Promo banner currentPromo
   if (currentPromo) {
     const banner = document.createElement('div');
     banner.className = 'promo-active-banner';
-    banner.innerHTML = `<strong>${currentPromo.title}</strong><div style="font-size:0.95rem;margin-top:0.2rem;">${currentPromo.text}${currentPromo.percent ? ` — ${currentPromo.percent}% de descuento` : ''}${currentPromo.minItems ? ` (mínimo ${currentPromo.minItems} items)` : ''}</div>`;
+    banner.innerHTML = `<strong>${htmlEscape(currentPromo.title)}</strong><div style="font-size:0.95rem;margin-top:0.2rem;">${htmlEscape(currentPromo.text || '')}${currentPromo.percent ? ` — ${Number(currentPromo.percent)}%` : ''}${currentPromo.minItems ? ` (mínimo ${Number(currentPromo.minItems)} items)` : ''}</div>`;
     container.appendChild(banner);
     setTimeout(() => { currentPromo = null; }, 8000);
   }
 
-  // Combo 3x2 banner si está activo
+  // Combo banner
   let comboBanner = document.getElementById('combo3x2Banner');
   if (combo3x2 && combo3x2.enabled) {
     if (!comboBanner) {
@@ -187,19 +183,10 @@ function renderCatalog() {
       comboBanner.className = "combo3x2-banner";
       document.getElementById('catalogo').prepend(comboBanner);
     }
-    comboBanner.innerHTML = `
-      <div>
-        <strong>¡Combo 3x2 activo!</strong>
-        <span style="display:block;font-size:1rem;">
-          Elige cualquier <b>3 servicios</b> y el de menor precio (si es elegible) ¡te sale GRATIS!
-        </span>
-      </div>
-    `;
-  } else if (comboBanner) {
-    comboBanner.remove();
-  }
+    comboBanner.innerHTML = `<div><strong>¡Combo 3x2 activo!</strong><span style="display:block;font-size:1rem;">Elige cualquier <b>3 servicios</b> y el de menor precio elegible ¡te sale GRATIS!</span></div>`;
+  } else if (comboBanner) comboBanner.remove();
 
-  // Categorías dinámicas y productos (orden por 'order')
+  // categories
   const cats = [...new Set(PRODUCTS.map(p => p.categoria || 'Sin categoría'))];
   cats.forEach(cat => {
     const catTitle = document.createElement('div');
@@ -217,31 +204,39 @@ function renderCatalog() {
 
       if (prod.oferta || prod.promo) card.classList.add('is-promoted');
 
-      let precioHtml = prod.oferta
+      // Build compact visible elements; longer info remains in modal (detalles)
+      const precioHtml = prod.oferta
         ? `<span class="oferta">Oferta: ${precioCOP(prod.oferta)} <span style="font-size:0.95em;text-decoration:line-through;color:#aaa;">${precioCOP(prod.precio)}</span></span>`
-        : `<span>${precioCOP(prod.precio)}</span>`;
-      let promoHtml = prod.promo ? `<span class="promo">${prod.promo}</span>` : '';
-      let descHtml = Array.isArray(prod.descripcion)
-        ? `<ul class="desc-list">${prod.descripcion.map(d => `<li>${d}</li>`).join('')}</ul>`
-        : `<p>${prod.descripcion || ''}</p>`;
+        : `<span class="precio">${precioCOP(prod.precio)}</span>`;
+      const promoHtml = prod.promo ? `<span class="promo">${htmlEscape(prod.promo)}</span>` : '';
+      const descHtml = Array.isArray(prod.descripcion)
+        ? `<ul class="desc-list">${prod.descripcion.map(d => `<li>${htmlEscape(d)}</li>`).join('')}</ul>`
+        : `<p class="card-description">${htmlEscape(prod.descripcion || '')}</p>`;
 
-      const soldOut = isSoldOut(prod);
-      const stockInfo = (typeof prod.stock !== 'undefined' && prod.stock !== null) ? `<div style="margin-bottom:0.4rem;color:#ddd;font-size:0.9rem;">Stock: ${Number(prod.stock)}</div>` : '';
-      const agotadoHtml = soldOut ? `<div><span class="agotado-badge">Agotado</span></div>` : '';
-      const buyButton = soldOut
-        ? `<button class="btn" disabled style="opacity:0.5;cursor:not-allowed;">Agotado</button>`
-        : `<button class="btn" onclick="addToCart('${prod.id}')">Comprar</button>`;
+      const agotadoHtml = prod.agotado ? `<div><span class="agotado-badge">Agotado</span></div>` : '';
 
+      // En la tarjeta mostramos img, nombre, precio visible y botones. El resto será visible en el modal (detalles)
       card.innerHTML = `
         <img class="product-image" src="${prod.imagen || 'images/placeholder.png'}" alt="${htmlEscape(prod.nombre)}" onclick="showProductDetails('${prod.id}')" style="cursor:pointer">
-        ${promoHtml}
         ${agotadoHtml}
         <h3 onclick="showProductDetails('${prod.id}')" style="cursor:pointer">${htmlEscape(prod.nombre)}</h3>
-        ${descHtml}
-        ${precioHtml}
-        ${stockInfo}
-        ${buyButton}
+
+        <!-- Precio visible fuera de la tarjeta -->
+        <div class="card-price" aria-hidden="false">${precioHtml}</div>
+
+        <div class="card-actions">
+          ${prod.agotado ? `<button class="btn" disabled style="opacity:0.5;cursor:not-allowed;">Agotado</button>` : `<button class="btn" onclick="addToCart('${prod.id}')">Comprar</button>`}
+          <button class="btn small ver-mas-btn" onclick="showProductDetails('${prod.id}')">Mas Info</button>
+        </div>
+
+        <!-- detailed info hidden for compact view but used for accessibility / desktop view -->
+        <div class="card-info" aria-hidden="true" style="display:none;">
+          ${promoHtml}
+          ${descHtml}
+          ${precioHtml}
+        </div>
       `;
+
       grid.appendChild(card);
     });
 
@@ -249,13 +244,13 @@ function renderCatalog() {
   });
 }
 
-/* --- Inicio: Favoritos y Promos (detalladas) --- */
+/* ========== Home (Favorites + Promos) ========== */
 function renderHomeExtras() {
   const favContainer = document.getElementById('favoritesContainer');
   const promosContainer = document.getElementById('promosContainer');
   if (!favContainer || !promosContainer) return;
 
-  // Favoritos (igual que antes)
+  // Favorites
   const featured = PRODUCTS.filter(p => p.featured);
   const favorites = featured.length ? featured.slice(0, 6) : [];
 
@@ -269,89 +264,75 @@ function renderHomeExtras() {
       const btn = document.createElement('button');
       btn.className = 'fav-btn';
       btn.setAttribute('title', p.nombre);
-      btn.innerHTML = `<img src="${p.imagen || 'images/placeholder.png'}" alt="${p.nombre}"><span>${p.nombre}</span>`;
-      btn.onclick = () => {
-        if (document.querySelector('#inicio.active')) showProductDetails(p.id);
-        else openCatalogAndShow(p.id);
-      };
+      btn.innerHTML = `<img src="${p.imagen || 'images/placeholder.png'}" alt="${htmlEscape(p.nombre)}"><span>${htmlEscape(p.nombre)}</span>`;
+      btn.onclick = () => { if (document.querySelector('#inicio.active')) showProductDetails(p.id); else openCatalogAndShow(p.id); };
       grid.appendChild(btn);
     });
     favContainer.appendChild(grid);
   }
 
-  // Promos detalladas: recuadros grandes con imagen, título, texto, badges y producto objetivo si existe
-   promosContainer.innerHTML = '';
+  // Promos detailed
+  promosContainer.innerHTML = '';
   if (!sitePromos || sitePromos.length === 0) {
     promosContainer.innerHTML = '<p>No hay promociones configuradas.</p>';
-  } else {
-    const grid = document.createElement('div');
-    grid.className = 'promos-detailed-grid';
-
-    sitePromos.forEach(pr => {
-      const targetName = pr.targetProductId ? (PRODUCTS.find(p => String(p.id) === String(pr.targetProductId))?.nombre || pr.targetProductId) : '';
-
-      const card = document.createElement('div');
-      card.className = 'promo-detailed-card';
-
-      // Build description HTML: prefer descripcion[] as <ul>, otherwise text as <p>
-      let descriptionHtml = '';
-      if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
-        descriptionHtml = '<ul class="promo-detailed-list" style="margin:0 0 0.2rem 1.1rem;padding-left:0;">' +
-          pr.descripcion.map(i => `<li style="margin:0.18rem 0;">${htmlEscape(i)}</li>`).join('') +
-          '</ul>';
-      } else {
-        descriptionHtml = `<p class="promo-detailed-text">${htmlEscape(pr.text || '')}</p>`;
-      }
-
-      card.innerHTML = `
-        <div class="promo-detailed-thumb">
-          <img src="${pr.image || 'images/promo-placeholder.png'}" alt="${htmlEscape(pr.title)}">
-        </div>
-        <div class="promo-detailed-body">
-          <div class="promo-detailed-head">
-            <h3 class="promo-detailed-title">${htmlEscape(pr.title)}</h3>
-            <div class="promo-badges">
-              ${pr.percent ? `<span class="badge percent">${Number(pr.percent)}%</span>` : ''}
-              ${pr.minItems ? `<span class="badge minitems">min ${Number(pr.minItems)}</span>` : ''}
-            </div>
-          </div>
-          ${descriptionHtml}
-          ${pr.targetProductId ? `<div class="promo-target">Producto objetivo: <strong>${htmlEscape(targetName)}</strong></div>` : ''}
-          <div class="promo-detailed-actions">
-            <button class="btn" onclick="applySitePromoAndOpen('${pr.id}')">Ver en catálogo</button>
-          </div>
-        </div>
-      `;
-
-      grid.appendChild(card);
-    });
-
-    promosContainer.appendChild(grid);
+    return;
   }
+
+  const grid = document.createElement('div');
+  grid.className = 'promos-detailed-grid';
+
+  sitePromos.forEach(pr => {
+    const targetName = pr.targetProductId ? (PRODUCTS.find(p => String(p.id) === String(pr.targetProductId))?.nombre || pr.targetProductId) : '';
+    const card = document.createElement('div');
+    card.className = 'promo-detailed-card';
+
+    // prefer descripcion array if present
+    let descriptionHtml = '';
+    if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
+      descriptionHtml = '<ul class="promo-detailed-list">' + pr.descripcion.map(i => `<li>${htmlEscape(i)}</li>`).join('') + '</ul>';
+    } else {
+      descriptionHtml = `<p class="promo-detailed-text">${htmlEscape(pr.text || '')}</p>`;
+    }
+
+    card.innerHTML = `
+      <div class="promo-detailed-thumb">
+        <img src="${pr.image || 'images/promo-placeholder.png'}" alt="${htmlEscape(pr.title)}">
+      </div>
+      <div class="promo-detailed-body">
+        <div class="promo-detailed-head">
+          <h3 class="promo-detailed-title">${htmlEscape(pr.title)}</h3>
+          <div class="promo-badges">
+            ${pr.percent ? `<span class="badge percent">${Number(pr.percent)}%</span>` : ''}
+            ${pr.minItems ? `<span class="badge minitems">min ${Number(pr.minItems)}</span>` : ''}
+          </div>
+        </div>
+        ${descriptionHtml}
+        ${pr.targetProductId ? `<div class="promo-target">Producto objetivo: <strong>${htmlEscape(targetName)}</strong></div>` : ''}
+        <div class="promo-detailed-actions">
+          <button class="btn" onclick="applySitePromoAndOpen('${pr.id}')">Ver en catálogo</button>
+        </div>
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+
+  promosContainer.appendChild(grid);
 }
 
-/* Aplica promo y abre catálogo; scroll al producto si targetProductId existe */
+/* apply promo */
 function applySitePromoAndOpen(promoId) {
   const pr = sitePromos.find(p => String(p.id) === String(promoId));
   if (!pr) return;
   currentPromo = pr;
-  if (pr.targetProductId) {
-    openCatalogAndShow(pr.targetProductId);
-  } else {
-    showSection('catalogo');
-    renderCatalog();
-    const container = document.getElementById('catalogContainer');
-    if (container) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  if (pr.targetProductId) openCatalogAndShow(pr.targetProductId);
+  else { showSection('catalogo'); renderCatalog(); const container = document.getElementById('catalogContainer'); if (container) container.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 }
 
-/* --- Modal de producto --- */
+/* ========== Modal product ========== */
 function showProductDetails(id) {
   const prod = PRODUCTS.find(p => String(p.id) === String(id));
-  if (!prod) {
-    showToast('Producto no encontrado.');
-    return;
-  }
+  if (!prod) { showToast('Producto no encontrado.'); return; }
   const modal = document.getElementById('productModal');
   if (!modal) return;
   const img = document.getElementById('modalImage');
@@ -360,7 +341,6 @@ function showProductDetails(id) {
   const price = document.getElementById('modalPrice');
   const buyBtn = document.getElementById('modalBuyBtn');
   const promoTag = document.getElementById('modalPromoTag');
-  const modalStock = document.getElementById('modalStock');
 
   if (img) img.src = prod.imagen || 'images/placeholder.png';
   if (title) title.textContent = prod.nombre || '';
@@ -368,31 +348,15 @@ function showProductDetails(id) {
   if (price) price.innerHTML = prod.oferta ? `<span class="oferta">Oferta: ${precioCOP(prod.oferta)}</span> <small style="text-decoration:line-through;color:#aaa;margin-left:0.6rem;">${precioCOP(prod.precio)}</small>` : `${precioCOP(prod.precio)}`;
   if (promoTag) promoTag.textContent = prod.promo || '';
 
-  const soldOut = isSoldOut(prod);
-  if (modalStock) {
-    if (typeof prod.stock !== 'undefined' && prod.stock !== null) {
-      modalStock.textContent = soldOut ? 'Sin stock' : `Stock disponible: ${Number(prod.stock)}`;
-      modalStock.style.color = soldOut ? '#ffb3b3' : '#00ff85';
-    } else {
-      modalStock.textContent = soldOut ? 'No disponible' : '';
-      modalStock.style.color = soldOut ? '#ffb3b3' : '#00ff85';
-    }
-  }
-
   if (buyBtn) {
-    if (soldOut) {
+    if (prod.agotado) {
       buyBtn.disabled = true;
       buyBtn.style.opacity = '0.5';
       buyBtn.onclick = () => showToast('Producto agotado.');
-      buyBtn.textContent = 'Agotado';
     } else {
       buyBtn.disabled = false;
       buyBtn.style.opacity = '';
-      buyBtn.textContent = 'Comprar';
-      buyBtn.onclick = function () {
-        addToCart(prod.id);
-        closeProductModal();
-      };
+      buyBtn.onclick = function () { addToCart(prod.id); closeProductModal(); };
     }
   }
 
@@ -406,7 +370,7 @@ function closeProductModal() {
   document.body.style.overflow = '';
 }
 
-/* Abre catálogo y muestra producto (scroll suave + highlight) */
+/* open catalog and show */
 function openCatalogAndShow(id) {
   showSection('catalogo');
   setTimeout(() => {
@@ -424,7 +388,7 @@ function openCatalogAndShow(id) {
   }, 220);
 }
 
-/* --- Filtro para resaltar promociones en catálogo --- */
+/* ========== Promo filter UI ========== */
 function togglePromoFilter(enabled) {
   const container = document.getElementById('catalogContainer');
   if (!container) return;
@@ -432,24 +396,15 @@ function togglePromoFilter(enabled) {
   else container.classList.remove('promo-filter-active');
 }
 
-/* --- Carrito --- */
+/* ========== Cart ========== */
 function addToCart(id) {
   const prod = PRODUCTS.find(p => String(p.id) === String(id));
-  if (!prod) {
-    showToast('Producto no encontrado.');
-    return;
-  }
-  if (isSoldOut(prod)) {
-    showToast('Producto agotado.');
-    return;
-  }
+  if (!prod) { showToast('Producto no encontrado.'); return; }
+  if (prod.agotado) { showToast('Producto agotado.'); return; }
   const precioFinal = prod.oferta ? prod.oferta : prod.precio;
   const existing = cart.find(p => String(p.id) === String(id));
-  if (existing) {
-    existing.cantidad += 1;
-  } else {
-    cart.push({ ...prod, precio: precioFinal, cantidad: 1 });
-  }
+  if (existing) existing.cantidad += 1;
+  else cart.push({ ...prod, precio: precioFinal, cantidad: 1 });
   showToast('Producto agregado al carrito');
   renderCart();
   updateCartBubble();
@@ -479,12 +434,10 @@ function renderCart() {
     return;
   }
 
-  // Total base
   let baseTotal = cart.reduce((acc, p) => acc + p.precio * p.cantidad, 0);
 
-  // Aplicar Combo 3x2 (gratis el menor precio entre eligibles)
+  // combo 3x2
   let comboMsg = "";
-  let comboDiscount = 0;
   if (combo3x2 && combo3x2.enabled) {
     let eligiblesInCart = [];
     cart.forEach(prod => {
@@ -494,44 +447,33 @@ function renderCart() {
     });
     if (eligiblesInCart.length >= 3) {
       eligiblesInCart.sort((a, b) => a - b);
-      comboDiscount = eligiblesInCart[0];
+      const comboDiscount = eligiblesInCart[0];
       baseTotal -= comboDiscount;
       comboMsg = `<div class="combo3x2-desc">¡Combo 3x2 aplicado! Descuento: -${precioCOP(comboDiscount)}</div>`;
     }
   }
 
-  // Descuento bulk por cantidad (después del combo)
+  // bulk
   let bulkMsg = "";
-  let bulkAmt = 0;
   if (bulkDiscount && bulkDiscount.enabled) {
     const minItems = Number(bulkDiscount.minItems || 0);
     const percent = Number(bulkDiscount.percent || 0);
     const applyTo = bulkDiscount.applyTo || 'all';
-
     let itemsCount = 0;
-    if (applyTo === 'all') {
-      itemsCount = cart.reduce((acc, p) => acc + p.cantidad, 0);
-    } else if (applyTo === 'eligibles') {
-      cart.forEach(prod => {
-        if (Array.isArray(combo3x2.eligibles) && combo3x2.eligibles.map(String).includes(String(prod.id))) {
-          itemsCount += prod.cantidad;
-        }
-      });
-    }
-
+    if (applyTo === 'all') itemsCount = cart.reduce((acc,p)=>acc+p.cantidad,0);
+    else cart.forEach(prod => { if (Array.isArray(combo3x2.eligibles) && combo3x2.eligibles.map(String).includes(String(prod.id))) itemsCount += prod.cantidad; });
     if (itemsCount >= minItems && percent > 0) {
-      bulkAmt = Math.round((baseTotal * percent) / 100);
+      const bulkAmt = Math.round((baseTotal * percent) / 100);
       baseTotal -= bulkAmt;
       bulkMsg = `<div class="combo3x2-desc">Descuento por compra de ${itemsCount} items: -${percent}% (-${precioCOP(bulkAmt)})</div>`;
     }
   }
 
-  // Render items
   cart.forEach(prod => {
     const item = document.createElement('div');
     item.className = 'cart-item';
     item.innerHTML = `
-      <span>${prod.nombre} (${precioCOP(prod.precio)}) x ${prod.cantidad}</span>
+      <span>${htmlEscape(prod.nombre)} (${precioCOP(prod.precio)}) x ${prod.cantidad}</span>
       <div class="cart-controls">
         <button onclick="changeQty('${prod.id}', -1)">-</button>
         <button onclick="changeQty('${prod.id}', 1)">+</button>
@@ -541,8 +483,7 @@ function renderCart() {
     container.appendChild(item);
   });
 
-  const totalHtml = `${comboMsg}${bulkMsg}Total: ${precioCOP(baseTotal)}`;
-  document.getElementById('cartTotal').innerHTML = totalHtml;
+  document.getElementById('cartTotal').innerHTML = `${comboMsg}${bulkMsg}Total: ${precioCOP(baseTotal)}`;
   document.getElementById('finalizeBtn').style.display = 'inline-block';
   updateCartBubble();
 }
@@ -551,46 +492,24 @@ function finalizePurchase() {
   if (cart.length === 0) return;
   const phone = "573243052782";
   let msg = "¡Hola! Quiero finalizar mi compra en ElectroFlips Xperience:%0A";
-  cart.forEach(p => {
-    msg += `- ${p.nombre} x ${p.cantidad} (${precioCOP(p.precio * p.cantidad)})%0A`;
-  });
+  cart.forEach(p => msg += `- ${p.nombre} x ${p.cantidad} (${precioCOP(p.precio * p.cantidad)})%0A`);
 
   let total = cart.reduce((acc, p) => acc + p.precio * p.cantidad, 0);
-  let comboApplied = 0;
   if (combo3x2 && combo3x2.enabled) {
-    let eligiblesInCart = [];
-    cart.forEach(prod => {
-      if (Array.isArray(combo3x2.eligibles) && combo3x2.eligibles.map(String).includes(String(prod.id))) {
-        for (let i = 0; i < prod.cantidad; i++) eligiblesInCart.push(prod.precio);
-      }
-    });
-    if (eligiblesInCart.length >= 3) {
-      eligiblesInCart.sort((a, b) => a - b);
-      comboApplied = eligiblesInCart[0];
-      total -= comboApplied;
-      msg += `Descuento Combo 3x2 aplicado: -${precioCOP(comboApplied)}%0A`;
-    }
+    let eligibles = [];
+    cart.forEach(prod => { if (Array.isArray(combo3x2.eligibles) && combo3x2.eligibles.map(String).includes(String(prod.id))) for (let i=0;i<prod.cantidad;i++) eligibles.push(prod.precio); });
+    if (eligibles.length >= 3) { eligibles.sort((a,b)=>a-b); total -= eligibles[0]; msg += `Descuento Combo 3x2 aplicado: -${precioCOP(eligibles[0])}%0A`; }
   }
 
-  let bulkApplied = 0;
   if (bulkDiscount && bulkDiscount.enabled) {
     const minItems = Number(bulkDiscount.minItems || 0);
     const percent = Number(bulkDiscount.percent || 0);
     const applyTo = bulkDiscount.applyTo || 'all';
-
     let itemsCount = 0;
-    if (applyTo === 'all') {
-      itemsCount = cart.reduce((acc, p) => acc + p.cantidad, 0);
-    } else if (applyTo === 'eligibles') {
-      cart.forEach(prod => {
-        if (Array.isArray(combo3x2.eligibles) && combo3x2.eligibles.map(String).includes(String(prod.id))) {
-          itemsCount += prod.cantidad;
-        }
-      });
-    }
-
+    if (applyTo === 'all') itemsCount = cart.reduce((acc,p)=>acc+p.cantidad,0);
+    else cart.forEach(prod => { if (Array.isArray(combo3x2.eligibles) && combo3x2.eligibles.map(String).includes(String(prod.id))) itemsCount += prod.cantidad; });
     if (itemsCount >= minItems && percent > 0) {
-      bulkApplied = Math.round((total * percent) / 100);
+      const bulkApplied = Math.round((total * percent) / 100);
       total -= bulkApplied;
       msg += `Descuento por compra múltiple (${percent}%): -${precioCOP(bulkApplied)}%0A`;
     }
@@ -604,9 +523,7 @@ function finalizePurchase() {
   updateCartBubble();
 }
 
-/* ------------------ ADMIN ------------------ */
-
-/* Mostrar panel admin o login */
+/* ========== ADMIN ========== */
 function renderAdminPanel() {
   const adminBox = document.getElementById('adminPanelBox');
   const loginBox = document.getElementById('adminLoginBox');
@@ -621,102 +538,66 @@ function renderAdminPanel() {
   } else {
     if (loginBox) loginBox.style.display = "";
     if (adminBox) adminBox.style.display = "none";
-    const err = document.getElementById('adminLoginError');
-    if (err) err.innerText = "";
+    const err = document.getElementById('adminLoginError'); if (err) err.innerText = "";
   }
 }
 
-/* Admin login/logout (demo local) */
 function adminLogin(e) {
   e.preventDefault();
   const email = document.getElementById('adminEmail').value.trim();
   const password = document.getElementById('adminPassword').value.trim();
   const adminMatch = ADMINS.find(a => a.email === email && a.password === password);
   if (adminMatch) {
-    isAdminAuthed = true;
-    adminEmail = email;
-    renderAdminPanel();
+    isAdminAuthed = true; adminEmail = email; renderAdminPanel();
   } else {
     const err = document.getElementById('adminLoginError');
     if (err) err.innerText = "Correo o contraseña incorrectos.";
   }
   if (e && e.target) e.target.reset();
 }
-function adminLogout() {
-  isAdminAuthed = false;
-  adminEmail = null;
-  renderAdminPanel();
-}
+function adminLogout() { isAdminAuthed = false; adminEmail = null; renderAdminPanel(); }
 
-/* Combo 3x2 admin UI */
+/* Combo 3x2 admin */
 function renderCombo3x2Admin() {
   let box = document.getElementById('combo3x2Admin');
   if (!box) {
-    box = document.createElement('div');
-    box.id = 'combo3x2Admin';
-    const panel = document.querySelector('.admin-panel');
-    if (panel) panel.prepend(box);
+    box = document.createElement('div'); box.id = 'combo3x2Admin';
+    const panel = document.querySelector('.admin-panel'); if (panel) panel.prepend(box);
   }
 
   const productCheckboxes = PRODUCTS.map(p => {
     const checked = Array.isArray(combo3x2.eligibles) && combo3x2.eligibles.map(String).includes(String(p.id));
-    return `<label style="display:inline-block;margin:0.3em 1em 0.3em 0;">
-      <input type="checkbox" class="combo3x2Eligible" value="${p.id}" ${checked ? "checked" : ""}>
-      ${p.nombre}
-    </label>`;
+    return `<label style="display:inline-block;margin:0.3em 1em 0.3em 0;"><input type="checkbox" class="combo3x2Eligible" value="${p.id}" ${checked ? "checked" : ""}> ${htmlEscape(p.nombre)}</label>`;
   }).join('');
 
   box.innerHTML = `
     <h2>Promo Combo 3x2</h2>
-    <label style="display:flex;align-items:center;gap:0.6rem;">
-      <input type="checkbox" id="combo3x2Switch" ${combo3x2 && combo3x2.enabled ? "checked" : ""}>
-      Activar Combo 3x2 (guardar inmediato)
-    </label>
-    <div style="margin:1em 0;">
-      <strong>Servicios elegibles (pueden ser el GRATIS):</strong><br>
-      ${productCheckboxes || '<em>No hay productos.</em>'}
-    </div>
-    <div style="margin-top:0.6rem;">
-      <button class="btn" id="saveCombo3x2Eligibles">Guardar elegibles</button>
-    </div>
-    <hr>
+    <label style="display:flex;align-items:center;gap:0.6rem;"><input type="checkbox" id="combo3x2Switch" ${combo3x2 && combo3x2.enabled ? "checked" : ""}> Activar Combo 3x2 (guardar inmediato)</label>
+    <div style="margin:1em 0;"><strong>Servicios elegibles (pueden ser el GRATIS):</strong><br>${productCheckboxes || '<em>No hay productos.</em>'}</div>
+    <div style="margin-top:0.6rem;"><button class="btn" id="saveCombo3x2Eligibles">Guardar elegibles</button></div><hr>
   `;
 
   const switchEl = document.getElementById('combo3x2Switch');
   if (switchEl) switchEl.onchange = function () {
     combo3x2.enabled = this.checked;
-    comboRef.set({ enabled: combo3x2.enabled, eligibles: combo3x2.eligibles }).then(() => {
-      showToast('Estado Combo 3x2 actualizado.');
-    }).catch(err => {
-      console.error('Error guardando estado combo:', err);
-      alert('Error guardando estado Combo 3x2. Revisa la consola.');
-    });
+    comboRef.set({ enabled: combo3x2.enabled, eligibles: combo3x2.eligibles }).then(() => showToast('Estado Combo 3x2 actualizado.')).catch(err => { console.error(err); alert('Error guardando estado Combo 3x2.'); });
   };
 
   const saveBtn = document.getElementById('saveCombo3x2Eligibles');
   if (saveBtn) saveBtn.onclick = () => {
-    const eligibles = Array.from(document.querySelectorAll('.combo3x2Eligible'))
-      .filter(c => c.checked)
-      .map(c => String(c.value));
+    const eligibles = Array.from(document.querySelectorAll('.combo3x2Eligible')).filter(c=>c.checked).map(c=>String(c.value));
     combo3x2.eligibles = eligibles;
-    comboRef.set({ enabled: combo3x2.enabled, eligibles: combo3x2.eligibles }).then(() => {
-      showToast('Elegibles guardados.');
-    }).catch(err => {
-      console.error(err);
-      alert("Error guardando eligibles. Revisa la consola.");
-    });
+    comboRef.set({ enabled: combo3x2.enabled, eligibles: combo3x2.eligibles }).then(()=>showToast('Elegibles guardados.')).catch(err=>{ console.error(err); alert('Error guardando eligibles.'); });
   };
 }
 
-/* Promos admin UI */
+/* Promos admin (list) */
 function renderPromosAdmin() {
   const list = document.getElementById('promoList');
   if (!list) return;
   list.innerHTML = '';
-  if (!sitePromos || sitePromos.length === 0) {
-    list.innerHTML = '<p>No hay promos guardadas.</p>';
-    return;
-  }
+  if (!sitePromos || sitePromos.length === 0) { list.innerHTML = '<p>No hay promos guardadas.</p>'; return; }
+
   sitePromos.forEach(pr => {
     const item = document.createElement('div');
     item.className = 'promo-admin-item';
@@ -728,19 +609,15 @@ function renderPromosAdmin() {
     item.style.borderRadius = '8px';
     item.style.marginBottom = '0.6rem';
 
-    // Preferir descripcion[] si existe, sino usar text
     let descPreview = '';
-    if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
-      descPreview = pr.descripcion.join(' • ');
-    } else {
-      descPreview = pr.text || '';
-    }
+    if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) descPreview = pr.descripcion.join(' • ');
+    else descPreview = pr.text || '';
 
     item.innerHTML = `
       <div style="display:flex;gap:0.6rem;align-items:center;">
-        ${pr.image ? `<img src="${pr.image}" alt="${pr.title}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;">` : ''}
+        ${pr.image ? `<img src="${pr.image}" alt="${htmlEscape(pr.title)}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;">` : ''}
         <div>
-          <strong>${pr.title}</strong>
+          <strong>${htmlEscape(pr.title)}</strong>
           <div style="color:#cbeee0; max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${htmlEscape(descPreview)}</div>
         </div>
       </div>
@@ -753,6 +630,7 @@ function renderPromosAdmin() {
   });
 }
 
+/* Save promo (admin) */
 function savePromoFromAdmin() {
   const id = document.getElementById('promoId').value || String(Date.now());
   const title = document.getElementById('promoTitle').value.trim();
@@ -766,62 +644,33 @@ function savePromoFromAdmin() {
   if (!title || !textRaw) { alert('Título y texto son requeridos.'); return; }
 
   const descripcionArray = parseDescriptionToArray(textRaw);
-
   const promoObj = { id, title, text: textRaw, descripcion: descripcionArray, minItems, percent, applyTo, targetProductId };
   if (image) promoObj.image = image;
 
   const updated = sitePromos.filter(p => String(p.id) !== String(id)).concat([promoObj]);
-  promosRef.set({ promos: updated })
-    .then(() => {
-      showToast('Promoción guardada correctamente.');
-      clearPromoForm();
-    })
-    .catch(err => {
-      console.error('Error guardando promo:', err);
-      alert('Error guardando promo. Revisa la consola.');
-    });
+  promosRef.set({ promos: updated }).then(()=>{ showToast('Promoción guardada correctamente.'); clearPromoForm(); }).catch(err=>{ console.error(err); alert('Error guardando promo.'); });
 }
-
 function clearPromoForm() {
   const ids = ['promoId','promoTitle','promoText','promoMinItems','promoPercent','promoApplyTo','promoTargetProduct','promoImage'];
-  ids.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  const applyTo = document.getElementById('promoApplyTo');
-  if (applyTo) applyTo.value = 'all';
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const applyTo = document.getElementById('promoApplyTo'); if (applyTo) applyTo.value = 'all';
 }
-
 function editPromoForm(id) {
   const pr = sitePromos.find(p => String(p.id) === String(id));
   if (!pr) return;
   document.getElementById('promoId').value = pr.id || '';
   document.getElementById('promoTitle').value = pr.title || '';
-  // Si existe pr.descripcion (array) lo convertimos a string separado por '; '
-  if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) {
-    document.getElementById('promoText').value = pr.descripcion.join('; ');
-  } else {
-    document.getElementById('promoText').value = pr.text || '';
-  }
+  if (Array.isArray(pr.descripcion) && pr.descripcion.length > 0) document.getElementById('promoText').value = pr.descripcion.join('; ');
+  else document.getElementById('promoText').value = pr.text || '';
   document.getElementById('promoMinItems').value = pr.minItems || '';
   document.getElementById('promoPercent').value = pr.percent || '';
   document.getElementById('promoApplyTo').value = pr.applyTo || 'all';
   if (document.getElementById('promoTargetProduct')) document.getElementById('promoTargetProduct').value = pr.targetProductId || '';
   if (document.getElementById('promoImage')) document.getElementById('promoImage').value = pr.image || '';
 }
+function deletePromo(id) { if (!confirm('Eliminar esta promo?')) return; const updated = sitePromos.filter(p => String(p.id) !== String(id)); promosRef.set({ promos: updated }).then(()=>showToast('Promo eliminada.')).catch(err=>{ console.error(err); alert('Error eliminando promo.'); }); }
 
-function deletePromo(id) {
-  if (!confirm('Eliminar esta promo?')) return;
-  const updated = sitePromos.filter(p => String(p.id) !== String(id));
-  promosRef.set({ promos: updated }).then(() => {
-    showToast('Promo eliminada.');
-  }).catch(err => {
-    console.error('Error eliminando promo:', err);
-    alert('Error eliminando promo. Revisa la consola.');
-  });
-}
-
-/* --- Admin: productos organizados por categoría (como catálogo) --- */
+/* ========== Admin products list ========== */
 function renderAdminProducts() {
   const list = document.getElementById('adminProductList');
   if (!list) return;
@@ -842,7 +691,7 @@ function renderAdminProducts() {
     const catBox = document.createElement('div');
     catBox.className = 'admin-category-box';
     catBox.style.marginBottom = '1rem';
-    catBox.innerHTML = `<h3 style="margin:0 0 0.6rem 0;">${cat}</h3>`;
+    catBox.innerHTML = `<h3 style="margin:0 0 0.6rem 0;">${htmlEscape(cat)}</h3>`;
 
     const grid = document.createElement('div');
     grid.className = 'admin-grid';
@@ -859,19 +708,23 @@ function renderAdminProducts() {
       item.style.background = '#232526';
       item.style.padding = '0.8rem';
       item.style.borderRadius = '8px';
-      // compact action column
+
       item.innerHTML = `
-        <img src="${prod.imagen || 'images/placeholder.png'}" alt="${prod.nombre}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;">
+        <img src="${prod.imagen || 'images/placeholder.png'}" alt="${htmlEscape(prod.nombre)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;">
         <div style="flex:1;min-width:0;">
-          <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${prod.nombre}</strong>
+          <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${htmlEscape(prod.nombre)}</strong>
           <small style="display:block;margin-top:0.3rem;color:#cbeee0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${Array.isArray(prod.descripcion) ? prod.descripcion.join(' • ') : (prod.descripcion || '')}</small>
           <div style="margin-top:0.4rem;font-weight:bold;">${precioCOP(prod.precio)} ${prod.oferta ? `<span style="color:#ff00cc;margin-left:0.6rem;">(Oferta ${precioCOP(prod.oferta)})</span>` : ''}</div>
-          <div style="margin-top:0.35rem;font-size:0.9rem;color:#ddd;">Pos: ${prod.order ?? '(sin)'} — Stock: ${typeof prod.stock !== 'undefined' && prod.stock !== null ? Number(prod.stock) : '—'}</div>
+          <div style="margin-top:0.35rem;font-size:0.9rem;color:#ddd;">Pos: ${prod.order ?? '(sin)'}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
           <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;">
             <input type="checkbox" ${prod.featured ? "checked" : ""} onchange="adminToggleFeatured('${prod.id}', this.checked)">
             <span style="font-size:0.85rem;">Fav</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;">
+            <input type="checkbox" ${prod.agotado ? "checked" : ""} onchange="adminToggleAgotado('${prod.id}', this.checked)">
+            <span style="font-size:0.85rem;color:${prod.agotado ? '#ffb3b3' : '#fff'};">Agotado</span>
           </label>
           <div style="display:flex;gap:6px;">
             <button class="btn small" title="Subir" onclick="adminMoveUp('${prod.id}')">↑</button>
@@ -881,6 +734,7 @@ function renderAdminProducts() {
           </div>
         </div>
       `;
+
       grid.appendChild(item);
     });
 
@@ -889,82 +743,70 @@ function renderAdminProducts() {
   });
 }
 
+/* admin toggle featured */
 function adminToggleFeatured(id, checked) {
   productsRef.doc(String(id)).update({ featured: !!checked })
     .then(() => showToast(checked ? 'Producto marcado como favorito.' : 'Producto desmarcado de favoritos.'))
-    .catch(err => {
-      console.error('Error toggling featured:', err);
-      alert('Error actualizando favorito. Revisa la consola.');
-    });
+    .catch(err => { console.error('Error toggling featured:', err); alert('Error actualizando favorito. Revisa la consola.'); });
 }
 
-/* ========== CRUD productos: crear/editar con stock incluido (Option A) ========== */
-// Crear producto
+/* admin toggle agotado */
+function adminToggleAgotado(id, checked) {
+  productsRef.doc(String(id)).update({ agotado: !!checked })
+    .then(() => showToast(checked ? 'Producto marcado como agotado.' : 'Producto marcado como disponible.'))
+    .catch(err => { console.error('Error toggling agotado:', err); alert('Error actualizando estado agotado.'); });
+}
+
+/* ========== Admin: Add / Edit / Delete Products (implementación faltante) ========== */
+
+/* Crear producto */
 function adminAddProduct(e) {
-  e.preventDefault();
-  const nombreEl = document.getElementById('adminNombre');
-  const descEl = document.getElementById('adminDescripcion');
-  const precioEl = document.getElementById('adminPrecio');
-  const categoriaEl = document.getElementById('adminCategoria');
+  if (e && e.preventDefault) e.preventDefault();
+  const nombre = (document.getElementById('adminNombre')?.value || '').trim();
+  const descripcionRaw = (document.getElementById('adminDescripcion')?.value || '').trim();
+  const precio = Number(document.getElementById('adminPrecio')?.value || 0);
+  const categoria = (document.getElementById('adminCategoria')?.value || '').trim() || 'Sin categoría';
+  const imagen = (document.getElementById('adminImagen')?.value || '').trim() || '';
+  const oferta = document.getElementById('adminOferta')?.value ? Number(document.getElementById('adminOferta')?.value) : null;
+  const promo = (document.getElementById('adminPromo')?.value || '').trim() || '';
+  const featured = !!document.getElementById('adminFeatured')?.checked;
+  const agotado = !!document.getElementById('adminAgotado')?.checked;
 
-  if (!nombreEl || !precioEl || !categoriaEl || !descEl) {
-    alert('Faltan campos esenciales en el formulario.');
-    return;
-  }
+  if (!nombre || !descripcionRaw || isNaN(precio)) { alert('Nombre, descripción y precio son requeridos.'); return; }
 
-  const nombre = nombreEl.value.trim();
-  const descripcionRaw = descEl.value || '';
-  const descripcion = descripcionRaw ? descripcionRaw.split(';').map(x => x.trim()).filter(Boolean) : [];
-  const precio = Number(precioEl.value) || 0;
-  const categoria = categoriaEl.value.trim();
-
-  const imagenEl = document.getElementById('adminImagen');
-  const ofertaEl = document.getElementById('adminOferta');
-  const promoEl = document.getElementById('adminPromo');
-  const featuredEl = document.getElementById('adminFeatured');
-  const stockEl = document.getElementById('adminStock');
-
-  const imagen = imagenEl ? imagenEl.value.trim() : undefined;
-  const ofertaVal = ofertaEl ? ofertaEl.value.trim() : '';
-  const oferta = ofertaVal !== '' ? Number(ofertaVal) : undefined;
-  const promo = promoEl ? promoEl.value.trim() : undefined;
-  const featured = !!(featuredEl && featuredEl.checked);
-  const stock = (stockEl && stockEl.value !== '') ? Number(stockEl.value) : undefined;
-
-  const maxOrder = PRODUCTS.reduce((max, p) => {
-    const o = Number(p.order ?? -Infinity);
-    return isFinite(o) ? Math.max(max, o) : max;
-  }, 0);
-
+  const descripcion = parseDescriptionToArray(descripcionRaw);
   const payload = cleanPayload({
     nombre,
     descripcion,
     precio,
     categoria,
     imagen,
-    oferta,
-    promo,
-    featured,
-    stock,
-    order: maxOrder + 1
+    oferta: oferta || undefined,
+    promo: promo || undefined,
+    featured: !!featured,
+    agotado: !!agotado,
+    order: (PRODUCTS.length ? (Math.max(...PRODUCTS.map(p=>Number(p.order||0))) + 1) : 1),
+    createdAt: Date.now()
   });
 
-  productsRef.add(payload)
-    .then(() => {
-      if (e && e.target) e.target.reset();
-      showToast('Producto creado correctamente.');
-    })
-    .catch(err => {
-      console.error('Error agregando producto:', err);
-      alert('Error al agregar producto. Revisa la consola.');
-    });
+  productsRef.add(payload).then(() => {
+    showToast('Producto creado correctamente.');
+    const form = document.getElementById('addProductForm');
+    if (form) form.reset();
+  }).catch(err => {
+    console.error('Error creando producto:', err);
+    alert('Error creando producto. Revisa la consola.');
+  });
 }
 
-// Mostrar formulario de edición y precargar datos
+/* Mostrar formulario de edición y precargar datos */
 function adminEditProductForm(id) {
   const prod = PRODUCTS.find(p => String(p.id) === String(id));
-  if (!prod) return;
-  document.getElementById('editId').value = prod.id;
+  if (!prod) { alert('Producto no encontrado.'); return; }
+  const box = document.getElementById('editFormBox');
+  if (box) box.style.display = '';
+
+  document.getElementById('editId').value = prod.id || '';
   document.getElementById('editNombre').value = prod.nombre || '';
   document.getElementById('editDescripcion').value = Array.isArray(prod.descripcion) ? prod.descripcion.join('; ') : (prod.descripcion || '');
   document.getElementById('editPrecio').value = prod.precio || '';
@@ -973,211 +815,267 @@ function adminEditProductForm(id) {
   document.getElementById('editOferta').value = prod.oferta || '';
   document.getElementById('editPromo').value = prod.promo || '';
   document.getElementById('editFeatured').checked = !!prod.featured;
-  document.getElementById('editStock').value = typeof prod.stock !== 'undefined' && prod.stock !== null ? Number(prod.stock) : '';
+  document.getElementById('editAgotado').checked = !!prod.agotado;
 
-  document.getElementById('editFormBox').style.display = '';
+  // scroll to edit form
+  setTimeout(()=> {
+    const el = document.getElementById('editFormBox');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 120);
 }
 
-// Cancelar edición
+/* Cancelar edición */
 function adminCancelEdit() {
-  document.getElementById('editFormBox').style.display = 'none';
+  const box = document.getElementById('editFormBox');
+  if (box) box.style.display = 'none';
+  const form = document.getElementById('editProductForm');
+  if (form) form.reset();
 }
 
-// Actualizar producto
+/* Actualizar producto */
 function adminEditProduct(e) {
-  e.preventDefault();
-  const id = document.getElementById('editId').value;
+  if (e && e.preventDefault) e.preventDefault();
+  const id = document.getElementById('editId')?.value;
   if (!id) { alert('ID de producto faltante.'); return; }
 
-  const nombreEl = document.getElementById('editNombre');
-  const descEl = document.getElementById('editDescripcion');
-  const precioEl = document.getElementById('editPrecio');
-  const categoriaEl = document.getElementById('editCategoria');
-  const imagenEl = document.getElementById('editImagen');
-  const ofertaEl = document.getElementById('editOferta');
-  const promoEl = document.getElementById('editPromo');
-  const featuredEl = document.getElementById('editFeatured');
-  const stockEl = document.getElementById('editStock');
+  const nombre = (document.getElementById('editNombre')?.value || '').trim();
+  const descripcionRaw = (document.getElementById('editDescripcion')?.value || '').trim();
+  const precio = Number(document.getElementById('editPrecio')?.value || 0);
+  const categoria = (document.getElementById('editCategoria')?.value || '').trim() || 'Sin categoría';
+  const imagen = (document.getElementById('editImagen')?.value || '').trim() || '';
+  const oferta = document.getElementById('editOferta')?.value ? Number(document.getElementById('editOferta')?.value) : null;
+  const promo = (document.getElementById('editPromo')?.value || '').trim() || '';
+  const featured = !!document.getElementById('editFeatured')?.checked;
+  const agotado = !!document.getElementById('editAgotado')?.checked;
 
-  const nombre = nombreEl ? nombreEl.value.trim() : undefined;
-  const descripcionRaw = descEl ? descEl.value : undefined;
-  const descripcion = (typeof descripcionRaw === 'string' && descripcionRaw.trim() !== '') ? descripcionRaw.split(';').map(x => x.trim()).filter(Boolean) : undefined;
-  const precio = precioEl && precioEl.value !== '' ? Number(precioEl.value) : undefined;
-  const categoria = categoriaEl ? categoriaEl.value.trim() : undefined;
-  const imagen = imagenEl ? imagenEl.value.trim() : undefined;
-  const ofertaVal = ofertaEl ? ofertaEl.value.trim() : '';
-  const oferta = ofertaVal !== '' ? Number(ofertaVal) : undefined;
-  const promo = promoEl ? promoEl.value.trim() : undefined;
-  const featured = typeof featuredEl !== 'undefined' ? !!featuredEl.checked : undefined;
-  const stock = (stockEl && stockEl.value !== '') ? Number(stockEl.value) : undefined;
+  if (!nombre || !descripcionRaw || isNaN(precio)) { alert('Nombre, descripción y precio son requeridos.'); return; }
 
-  const updateObj = cleanPayload({ nombre, descripcion, precio, categoria, imagen, oferta, promo, featured, stock, updatedAt: Date.now() });
+  const descripcion = parseDescriptionToArray(descripcionRaw);
+  const payload = cleanPayload({
+    nombre,
+    descripcion,
+    precio,
+    categoria,
+    imagen,
+    oferta: oferta || undefined,
+    promo: promo || undefined,
+    featured: !!featured,
+    agotado: !!agotado,
+    updatedAt: Date.now()
+  });
 
-  if (Object.keys(updateObj).length === 0) {
-    showToast('No hay cambios para guardar.');
-    document.getElementById('editFormBox').style.display = 'none';
-    return;
-  }
-
-  productsRef.doc(id).update(updateObj)
-    .then(() => {
-      document.getElementById('editFormBox').style.display = 'none';
-      showToast('Producto actualizado correctamente.');
-    })
-    .catch(err => {
-      console.error('Error actualizando producto:', err);
-      alert('Error al editar producto. Revisa la consola.');
-    });
+  productsRef.doc(String(id)).update(payload).then(() => {
+    showToast('Producto actualizado correctamente.');
+    adminCancelEdit();
+  }).catch(err => {
+    console.error('Error actualizando producto:', err);
+    alert('Error actualizando producto. Revisa la consola.');
+  });
 }
 
-// Eliminar producto
+/* Eliminar producto */
 function adminDeleteProduct(id) {
-  if (!confirm('¿Eliminar este producto?')) return;
-  productsRef.doc(id).delete()
-    .then(() => showToast('Producto eliminado correctamente.'))
-    .catch(err => {
-      console.error(err);
-      alert("Error eliminando producto.");
-    });
+  if (!confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) return;
+  productsRef.doc(String(id)).delete().then(() => {
+    showToast('Producto eliminado.');
+  }).catch(err => {
+    console.error('Error eliminando producto:', err);
+    alert('Error eliminando producto. Revisa la consola.');
+  });
 }
 
-/* ========== Reordenamiento: Up / Down y Normalizar ========== */
+/* ========== Ordering helpers ========== */
 function adminMoveUp(id) {
   const idx = PRODUCTS.findIndex(p => String(p.id) === String(id));
   if (idx <= 0) return;
-  const current = PRODUCTS[idx];
-  const above = PRODUCTS[idx - 1];
+  const current = PRODUCTS[idx]; const above = PRODUCTS[idx-1];
   const batch = db.batch();
-  const curRef = productsRef.doc(current.id);
-  const aboveRef = productsRef.doc(above.id);
-  const curOrder = Number(current.order ?? Date.now());
-  const aboveOrder = Number(above.order ?? Date.now() - 1);
-  batch.update(curRef, { order: aboveOrder });
-  batch.update(aboveRef, { order: curOrder });
-  batch.commit().catch(err => console.error("Error swap order:", err));
+  batch.update(productsRef.doc(current.id), { order: Number(above.order ?? Date.now()) });
+  batch.update(productsRef.doc(above.id), { order: Number(current.order ?? Date.now()) });
+  batch.commit().catch(err=>console.error('Error swap order',err));
 }
-
 function adminMoveDown(id) {
   const idx = PRODUCTS.findIndex(p => String(p.id) === String(id));
-  if (idx < 0 || idx >= PRODUCTS.length - 1) return;
-  const current = PRODUCTS[idx];
-  const below = PRODUCTS[idx + 1];
+  if (idx < 0 || idx >= PRODUCTS.length-1) return;
+  const current = PRODUCTS[idx]; const below = PRODUCTS[idx+1];
   const batch = db.batch();
-  const curRef = productsRef.doc(current.id);
-  const belowRef = productsRef.doc(below.id);
-  const curOrder = Number(current.order ?? Date.now());
-  const belowOrder = Number(below.order ?? Date.now() + 1);
-  batch.update(curRef, { order: belowOrder });
-  batch.update(belowRef, { order: curOrder });
-  batch.commit().catch(err => console.error("Error swap order:", err));
+  batch.update(productsRef.doc(current.id), { order: Number(below.order ?? Date.now()) });
+  batch.update(productsRef.doc(below.id), { order: Number(current.order ?? Date.now()) });
+  batch.commit().catch(err=>console.error('Error swap order',err));
 }
-
 function adminNormalizeOrder() {
   if (!confirm("Normalizará el orden de todos los productos (1,2,3...). ¿Continuar?")) return;
   const batch = db.batch();
-  PRODUCTS.forEach((p, i) => {
-    const ref = productsRef.doc(p.id);
-    batch.update(ref, { order: i + 1 });
-  });
-  batch.commit()
-    .then(() => alert("Orden normalizado correctamente."))
-    .catch(err => {
-      console.error("Error normalizando orden:", err);
-      alert("Error normalizando orden. Revisa la consola.");
-    });
+  PRODUCTS.forEach((p,i)=> batch.update(productsRef.doc(p.id), { order: i+1 }));
+  batch.commit().then(()=> showToast('Orden normalizado correctamente.')).catch(err=>{ console.error(err); alert('Error normalizando orden.'); });
 }
 
 /* ========== Site title / Bulk ========== */
 function loadSiteTitleIntoAdmin() {
-  siteConfigRef.get().then(doc => {
-    if (doc && doc.exists) {
-      const data = doc.data();
-      const input = document.getElementById('adminSiteTitle');
-      if (input) input.value = data.siteTitle || '';
-    }
-  }).catch(err => console.error('Error cargando siteTitle:', err));
+  siteConfigRef.get().then(doc => { if (doc && doc.exists) { const data = doc.data(); const input = document.getElementById('adminSiteTitle'); if (input) input.value = data.siteTitle || ''; } }).catch(err=>console.error('Error cargando siteTitle:',err));
 }
-
-function saveSiteTitle(newTitle) {
-  return siteConfigRef.set({ siteTitle: String(newTitle) });
-}
+function saveSiteTitle(newTitle) { return siteConfigRef.set({ siteTitle: String(newTitle) }); }
 
 function loadBulkIntoAdmin() {
-  const enabled = document.getElementById('bulkEnabled');
-  const minInput = document.getElementById('bulkMinItems');
-  const percentInput = document.getElementById('bulkPercent');
-  const applyToSel = document.getElementById('bulkApplyTo');
+  const enabled = document.getElementById('bulkEnabled'); const minInput = document.getElementById('bulkMinItems');
+  const percentInput = document.getElementById('bulkPercent'); const applyToSel = document.getElementById('bulkApplyTo');
   if (enabled) enabled.checked = Boolean(bulkDiscount.enabled);
   if (minInput) minInput.value = Number(bulkDiscount.minItems || 4);
   if (percentInput) percentInput.value = Number(bulkDiscount.percent || 20);
   if (applyToSel) applyToSel.value = bulkDiscount.applyTo || 'all';
 }
-
 function saveBulkFromAdmin() {
   const enabled = document.getElementById('bulkEnabled') ? document.getElementById('bulkEnabled').checked : false;
   const minItems = Number(document.getElementById('bulkMinItems') ? document.getElementById('bulkMinItems').value : 4);
   const percent = Number(document.getElementById('bulkPercent') ? document.getElementById('bulkPercent').value : 0);
   const applyTo = document.getElementById('bulkApplyTo') ? document.getElementById('bulkApplyTo').value : 'all';
   const payload = { enabled: Boolean(enabled), minItems: Math.max(1, minItems), percent: Math.max(0, Math.min(100, percent)), applyTo };
-  bulkRef.set(payload)
-    .then(() => showToast('Configuración de descuento guardada correctamente.'))
-    .catch(err => {
-      console.error('Error guardando bulk:', err);
-      alert('Error guardando configuración de descuento. Revisa la consola.');
-    });
+  bulkRef.set(payload).then(()=> showToast('Configuración de descuento guardada correctamente.')).catch(err=>{ console.error(err); alert('Error guardando bulk.'); });
 }
 
-/* --- Toast feedback --- */
-function showToast(msg) {
-  const toast = document.getElementById('catalogFeedback');
-  if (!toast) return;
-  toast.innerText = msg;
-  toast.classList.add('show');
-  setTimeout(() => { toast.classList.remove('show'); }, 2200);
+/* ========== Floating bubbles (cart + WhatsApp) ========== */
+function updateCartBubble() {
+  const badge = document.getElementById('cartBubbleBadge');
+  if (!badge) return;
+  const count = cart.reduce((sum, it) => sum + (Number(it.cantidad) || 0), 0);
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'inline-flex' : 'none';
 }
+function cartBubbleHandler() { showSection('carrito'); const cont = document.getElementById('cartContainer'); if (cont) cont.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function whatsappBubbleHandler() {
+  const phone = "573243052782";
+  const defaultMessage = "¡Hola! Me interesa recibir información sobre ElectroFlips Xperience. ¿Me ayudas, por favor?";
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(defaultMessage)}`, "_blank");
+}
+(function bindFloatingBubbles() {
+  // bindings are set in DOMContentLoaded below to ensure elements exist; keep this here for reference
+  window.updateCartBubble = updateCartBubble;
+})();
 
-/* --- Contacto (si existe formulario) --- */
-const contactForm = document.getElementById('contactForm');
-if (contactForm) {
-  contactForm.addEventListener('submit', function(e){
-    e.preventDefault();
-    const nombre = contactForm.nombre.value.trim();
-    const email = contactForm.email.value.trim();
-    const mensaje = contactForm.mensaje.value.trim();
-    const feedback = document.getElementById('contactFeedback');
-    if(!nombre || !email || !mensaje || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
-      feedback.innerText = "Por favor completa todos los campos correctamente.";
-      feedback.style.color = "#ff5b5b";
-      return;
+/* ========== Responsive helpers ========== */
+(function ensureCompactPromosOnMobile(){
+  function updateLayout() {
+    const isMobile = window.matchMedia('(max-width:720px)').matches;
+    document.documentElement.classList.toggle('compact-promos', isMobile);
+    const isInicioActive = document.querySelector('#inicio.active') !== null;
+    if (isInicioActive) {
+      try { renderHomeExtras(); } catch(e){ /* ignore */ }
     }
-    feedback.innerText = "¡Mensaje enviado! Nos pondremos en contacto contigo.";
-    feedback.style.color = "#00ff85";
-    contactForm.reset();
-    setTimeout(()=>{feedback.innerText="";}, 3000);
-  });
+  }
+  updateLayout();
+  let t; window.addEventListener('resize', ()=>{ clearTimeout(t); t = setTimeout(updateLayout, 120); });
+  const promosContainer = document.getElementById('promosContainer');
+  if (promosContainer) {
+    const mo = new MutationObserver(()=> {
+      if (window.matchMedia('(max-width:720px)').matches) {
+        clearTimeout(t); t = setTimeout(()=> {
+          promosContainer.querySelectorAll('.promo-detailed-card').forEach(card => { card.style.maxWidth = '100%'; card.style.boxSizing = 'border-box'; });
+        }, 80);
+      }
+    });
+    mo.observe(promosContainer, { childList: true, subtree: true });
+  }
+})();
+
+/* ========== Mobile sidebar and hamburger ========== */
+function setupMobileNavBindings() {
+  const hamburger = document.getElementById('mobileHamburger');
+  const overlay = document.getElementById('mobileNavOverlay');
+  const sidebar = document.getElementById('mobileSidebar');
+  const closeBtn = document.getElementById('mobileCloseBtn');
+  const brandDesktop = document.getElementById('brandNeon');
+  const brandMobile = document.getElementById('brandNeonMobile');
+
+  function openMobileNav() {
+    if (overlay) overlay.classList.add('visible');
+    if (sidebar) sidebar.classList.add('open');
+    if (overlay) overlay.setAttribute('aria-hidden', 'false');
+    if (sidebar) sidebar.setAttribute('aria-hidden', 'false');
+    document.documentElement.classList.add('mobile-nav-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMobileNav() {
+    if (overlay) overlay.classList.remove('visible');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.setAttribute('aria-hidden', 'true');
+    if (sidebar) sidebar.setAttribute('aria-hidden', 'true');
+    document.documentElement.classList.remove('mobile-nav-open');
+    document.body.style.overflow = '';
+  }
+
+  if (hamburger) hamburger.addEventListener('click', openMobileNav);
+  if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
+  if (overlay) overlay.addEventListener('click', closeMobileNav);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMobileNav(); });
+
+  function syncBrandText() {
+    if (!brandMobile) return;
+    if (brandDesktop) brandMobile.textContent = brandDesktop.textContent || brandMobile.textContent;
+  }
+  syncBrandText();
+  if (brandDesktop && brandMobile) {
+    const mo = new MutationObserver(syncBrandText);
+    mo.observe(brandDesktop, { childList: true, characterData: true, subtree: true });
+  }
+  window.closeMobileNav = closeMobileNav;
+  window.openMobileNav = openMobileNav;
 }
 
-/* --- Inicialización: eventos y listeners del DOM --- */
+/* ========== DOMContentLoaded bindings ========== */
 document.addEventListener('DOMContentLoaded', () => {
   renderCatalog();
   renderHomeExtras();
   renderAdminPanel();
 
-  const loginForm = document.getElementById('adminLoginForm');
-  if (loginForm) loginForm.onsubmit = adminLogin;
 
-  const logoutBtn = document.getElementById('adminLogoutBtn');
-  if (logoutBtn) logoutBtn.onclick = adminLogout;
+function setupMobileColumnsControl() {
+  const controlsWrap = document.querySelector('.catalog-controls');
+  if (!controlsWrap) return;
 
-  const addForm = document.getElementById('addProductForm');
-  if (addForm) addForm.onsubmit = adminAddProduct;
+  // evitar duplicar control
+  if (document.getElementById('mobileColumnsSelect')) return;
 
-  const editForm = document.getElementById('editProductForm');
-  if (editForm) editForm.onsubmit = adminEditProduct;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'mobile-columns-control';
+  wrapper.innerHTML = `
+    <label for="mobileColumnsSelect">Productos/ fila (móvil)</label>
+    <select id="mobileColumnsSelect" aria-label="Productos por fila en móvil">
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+    </select>
+  `;
+  controlsWrap.appendChild(wrapper);
 
-  const editCancel = document.getElementById('editCancelBtn');
-  if (editCancel) editCancel.onclick = adminCancelEdit;
+  const select = document.getElementById('mobileColumnsSelect');
+  // cargar preferencia previa
+  const saved = Number(localStorage.getItem('catalog_mobile_columns')) || parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mobile-columns')) || 2;
+  if ([1,2,3,4].includes(saved)) {
+    select.value = String(saved);
+    document.documentElement.style.setProperty('--mobile-columns', String(saved));
+  }
 
+  select.addEventListener('change', (e) => {
+    const v = Number(e.target.value) || 2;
+    document.documentElement.style.setProperty('--mobile-columns', String(v));
+    localStorage.setItem('catalog_mobile_columns', String(v));
+    // re-render por si hace falta (opcional)
+    try { renderCatalog(); } catch (err) { /* ignore */ }
+  });
+}
+
+
+  // Login/logout
+  const loginForm = document.getElementById('adminLoginForm'); if (loginForm) loginForm.onsubmit = adminLogin;
+  const logoutBtn = document.getElementById('adminLogoutBtn'); if (logoutBtn) logoutBtn.onclick = adminLogout;
+
+  // add/edit product forms
+  const addForm = document.getElementById('addProductForm'); if (addForm) addForm.onsubmit = adminAddProduct;
+  const editForm = document.getElementById('editProductForm'); if (editForm) editForm.onsubmit = adminEditProduct;
+  const editCancel = document.getElementById('editCancelBtn'); if (editCancel) editCancel.onclick = adminCancelEdit;
+
+  // Save site title
   const saveSiteTitleBtn = document.getElementById('saveSiteTitleBtn');
   if (saveSiteTitleBtn) {
     saveSiteTitleBtn.onclick = () => {
@@ -1187,87 +1085,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.getElementById('brandNeon');
         if (el) el.textContent = input.value.trim() || 'ElectroFlips Xperience';
         showToast('Título guardado.');
-      }).catch(err => {
-        console.error('Error guardando title:', err);
-        alert('Error guardando título. Revisa la consola.');
-      });
+      }).catch(err => { console.error('Error guardando title:', err); alert('Error guardando título. Revisa la consola.'); });
     };
   }
 
-  const saveBulkBtn = document.getElementById('saveBulkBtn');
-  if (saveBulkBtn) saveBulkBtn.onclick = saveBulkFromAdmin;
+  // Bulk
+  const saveBulkBtn = document.getElementById('saveBulkBtn'); if (saveBulkBtn) saveBulkBtn.onclick = saveBulkFromAdmin;
 
-  const savePromoBtn = document.querySelector('#promoForm button[onclick="savePromoFromAdmin()"]');
-  // promo form uses inline onclick; if not found nothing to bind
+  // Promo save binding (in case not using inline)
+  const promoSaveBtn = document.querySelector('#promoForm button[onclick="savePromoFromAdmin()"]');
+  if (promoSaveBtn) promoSaveBtn.onclick = savePromoFromAdmin;
 
-  // Modal close handler (click outside to close)
+  // Modal close by clicking outside
   const modal = document.getElementById('productModal');
-  if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeProductModal();
-    });
-  }
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeProductModal(); });
 
-  // Mobile sidebar + hamburger
-  (function mobileNavSetup(){
-    const hamburger = document.getElementById('mobileHamburger');
-    const overlay = document.getElementById('mobileNavOverlay');
-    const sidebar = document.getElementById('mobileSidebar');
-    const closeBtn = document.getElementById('mobileCloseBtn');
-    const brandDesktop = document.getElementById('brandNeon');
-    const brandMobile = document.getElementById('brandNeonMobile');
+  // Setup mobile nav bindings
+  setupMobileNavBindings();
 
-    function openMobileNav() {
-      if (overlay) overlay.classList.add('visible');
-      if (sidebar) sidebar.classList.add('open');
-      if (overlay) overlay.setAttribute('aria-hidden', 'false');
-      if (sidebar) sidebar.setAttribute('aria-hidden', 'false');
-      document.documentElement.classList.add('mobile-nav-open');
-      document.body.style.overflow = 'hidden';
-    }
-    function closeMobileNav() {
-      if (overlay) overlay.classList.remove('visible');
-      if (sidebar) sidebar.classList.remove('open');
-      if (overlay) overlay.setAttribute('aria-hidden', 'true');
-      if (sidebar) sidebar.setAttribute('aria-hidden', 'true');
-      document.documentElement.classList.remove('mobile-nav-open');
-      document.body.style.overflow = '';
-    }
-
-    if (hamburger) hamburger.addEventListener('click', openMobileNav);
-    if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
-    if (overlay) overlay.addEventListener('click', closeMobileNav);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMobileNav(); });
-
-    function syncBrandText() {
-      if (!brandMobile) return;
-      if (brandDesktop) brandMobile.textContent = brandDesktop.textContent || brandMobile.textContent;
-    }
-    syncBrandText();
-
-    if (brandDesktop && brandMobile) {
-      const mo = new MutationObserver(syncBrandText);
-      mo.observe(brandDesktop, { childList: true, characterData: true, subtree: true });
-    }
-
-    window.closeMobileNav = closeMobileNav;
-    window.openMobileNav = openMobileNav;
-  })();
-
-  // Floating bubbles behavior
+  // Bind floating bubbles if they exist
   const cartBtn = document.getElementById('cartBubbleBtn');
   const wsBtn = document.getElementById('whatsappBubbleBtn');
-
-  if (cartBtn) cartBtn.addEventListener('click', () => { showSection('carrito'); const cont = document.getElementById('cartContainer'); if (cont) cont.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-  if (wsBtn) wsBtn.addEventListener('click', () => {
-    const phone = "573243052782";
-    const defaultMessage = "¡Hola! Me interesa recibir información sobre ElectroFlips Xperience. ¿Me ayudas, por favor?";
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(defaultMessage)}`, "_blank");
-  });
-
+  if (cartBtn) cartBtn.addEventListener('click', cartBubbleHandler);
+  if (wsBtn) wsBtn.addEventListener('click', whatsappBubbleHandler);
   updateCartBubble();
 
-  // Detect device
+  // Mobile class setup
   (function setupMobileClass(){
     function updateMobileClass() {
       const isMobile = window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
@@ -1281,15 +1124,3 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   })();
 });
-/* Floating bubbles: actualizar contador */
-function updateCartBubble() {
-  const badge = document.getElementById('cartBubbleBadge');
-  if (!badge) return;
-  const count = cart.reduce((sum, it) => sum + (Number(it.cantidad) || 0), 0);
-  badge.textContent = count;
-  if (count <= 0) {
-    badge.style.display = 'none';
-  } else {
-    badge.style.display = 'inline-flex';
-  }
-}
