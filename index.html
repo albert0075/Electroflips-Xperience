@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ElectroFlips Xperience | Streaming y servicios digitales</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Floppy Xperience Distribución | Streaming y servicios digitales</title>
   <meta name="description" content="Tienda online de servicios de streaming, música, deportes y herramientas digitales. Accede fácil, seguro y a los mejores precios.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <nav class="main-nav">
+  <nav class="main-nav" role="navigation" aria-label="Navegación principal">
     <div class="nav-left">
-      <figure class="brand-figure" style="margin:0; display:flex; align-items:center; gap:1rem;">
-        <img src="images/electroflips.png" alt="Logo ElectroFlips Xperience" class="logo-nav" />
+      <figure class="brand-figure" aria-hidden="true">
+        <img src="images/electroflips.png" alt="Logo electroflips Xperience" class="logo-nav" />
       </figure>
 
-      <div class="nav-links">
+      <div class="nav-links" aria-hidden="false">
         <a href="#" onclick="showSection('inicio')">Inicio</a>
         <a href="#" onclick="showSection('catalogo')">Catálogo</a>
         <a href="#" onclick="showSection('carrito')">Carrito</a>
@@ -25,229 +25,242 @@
 
     <div class="nav-right">
       <div id="brandNeon" class="brand-neon" aria-label="Nombre del sitio">
-        ElectroFlips Xperience
+        Electroflips Xperience
       </div>
-<button id="mobileHamburger" class="mobile-hamburger" aria-label="Abrir menú">
-  <span class="hamb-line"></span>
-  <span class="hamb-line"></span>
-  <span class="hamb-line"></span>
-</button>
+
+      <!-- Mobile hamburger (visible en móvil) -->
+      <button id="mobileHamburger" class="mobile-hamburger" aria-label="Abrir menú">
+        <span class="hamb-line"></span>
+        <span class="hamb-line"></span>
+        <span class="hamb-line"></span>
+      </button>
     </div>
   </nav>
 
   <main>
     <!-- INICIO -->
-    <section id="inicio" class="section active">
-      <div class="title">Bienvenido a ElectroFlips Xperience</div>
+    <section id="inicio" class="section active" aria-labelledby="inicio-title">
+      <h1 id="inicio-title" class="title">Bienvenido a Electroflips Xperience</h1>
       <div class="subtitle">Tu tienda online de servicios y productos electrónicos</div>
+
       <p class="welcome-message">
-        Disfruta tus plataformas de streaming favoritas, música, deportes y más.<br>
-        <span class="highlight">¡Al mejor precio y con calidad garantizada!</span> 💸🔐📺<br>
-        Ofertas exclusivas, acceso inmediato y atención personalizada.<br>
-        ¿List@ para hacer de tu sofá el mejor cine del mundo? <span class="wave">🍿🛋️</span>
+        Disfruta tus plataformas de streaming favoritas, música, deportes y más.
+        <br><span class="highlight">¡Al mejor precio y con calidad garantizada!</span> 💸🔐📺
+        <br>Ofertas exclusivas, acceso inmediato y atención personalizada.
+        <br>¿List@ para hacer de tu sofá el mejor cine del mundo? <span class="wave">🍿🛋️</span>
       </p>
-      <button class="btn" onclick="showSection('catalogo')">Ver Catálogo</button>
- 
-      <!-- Favoritos / Accesos directos -->
-      <div style="margin-top:2rem;">
-        <h3 style="text-align:center;">Favoritos</h3>
-        <div id="favoritesContainer" style="max-width:1100px;margin:0 auto;"></div>
+
+      <div class="home-cta">
+        <button class="btn" onclick="showSection('catalogo')">Ver Catálogo</button>
       </div>
 
-<!-- Pegar dentro del <section id="inicio"> donde quieras mostrar promociones -->
-<div style="margin-top:1.6rem;">
-  <h3 style="text-align:center;">Promociones y Descuentos</h3>
-  <div id="promosContainer" style="max-width:1100px;margin:0 auto;"></div>
-</div>
- </section>
+      <!-- Favoritos -->
+      <section class="home-section" aria-labelledby="fav-title">
+        <h2 id="fav-title" style="text-align:center;">Favoritos</h2>
+        <div id="favoritesContainer" class="container-centered"></div>
+      </section>
+
+      <!-- Promociones -->
+      <section class="home-section" aria-labelledby="promos-title" style="margin-top:1rem;">
+        <h2 id="promos-title" style="text-align:center;">Promociones y Descuentos</h2>
+        <div id="promosContainer" class="container-centered"></div>
+      </section>
+    </section>
 
     <!-- CATÁLOGO -->
-    <section id="catalogo" class="section">
-      <div class="title">Catálogo</div>
+    <section id="catalogo" class="section" aria-labelledby="catalogo-title">
+      <h2 id="catalogo-title" class="title">Catálogo</h2>
 
-      <div id="catalogContainer"></div>
-      <div id="catalogFeedback" class="toast"></div>
+      <div class="catalog-controls" aria-hidden="false">
+      </div>
+
+      <div id="catalogContainer" class="catalog-container"></div>
+      <div id="catalogFeedback" class="toast" aria-live="polite"></div>
     </section>
 
     <!-- CARRITO -->
-    <section id="carrito" class="section">
-      <div class="title">Carrito de Compras</div>
+    <section id="carrito" class="section" aria-labelledby="carrito-title">
+      <h2 id="carrito-title" class="title">Carrito de Compras</h2>
       <div id="cartContainer" class="cart-list"></div>
-      <div id="cartTotal" class="cart-total"></div>
+      <div id="cartTotal" class="cart-total" aria-live="polite"></div>
       <div class="cart-actions">
         <button class="btn" onclick="finalizePurchase()" id="finalizeBtn" style="display:none;">Finalizar Compra</button>
       </div>
     </section>
 
     <!-- CONTACTO -->
-    <section id="contacto" class="section">
-      <div class="title">Contacto</div>
+    <section id="contacto" class="section" aria-labelledby="contacto-title">
+      <h2 id="contacto-title" class="title">Contacto</h2>
       <div class="contact-info">
         <p><strong>Correo:</strong> flixalbert75@gmail.com</p>
-        <p><strong>WhatsApp:</strong> <a href="https://wa.me/573243052782" target="_blank">+57 324 305 2782</a></p>
-        <p><strong>TikTok:</strong> <a href="https://www.tiktok.com/@electroflips27" target="_blank">@ElectroFlips27</a></p>
+        <p><strong>WhatsApp:</strong> <a href="https://wa.me/573243052782" target="_blank" rel="noopener">+57 324 305 2782</a></p>
+        <p><strong>TikTok:</strong> <a href="https://www.tiktok.com/@electroflips27" target="_blank" rel="noopener">@ElectroFlips27</a></p>
       </div>
-
     </section>
 
-    <!-- ADMINISTRADOR -->
-    <section id="admin" class="section">
-      <div class="title">Panel Administrador</div>
+    <!-- ADMIN -->
+    <section id="admin" class="section" aria-labelledby="admin-title">
+      <h2 id="admin-title" class="title">Panel Administrador</h2>
+
       <div id="adminLoginBox">
-        <form id="adminLoginForm">
-          <input type="email" id="adminEmail" placeholder="Code Admin" required/>
-          <input type="password" id="adminPassword" placeholder="Code" required/>
+        <form id="adminLoginForm" class="admin-login-form">
+          <input type="email" id="adminEmail" placeholder="Code Admin" required />
+          <input type="password" id="adminPassword" placeholder="Code" required />
           <button type="submit" class="btn">Entrar</button>
         </form>
-        <div id="adminLoginError" style="color:#ff5b5b; margin-top:1em;"></div>
+        <div id="adminLoginError" class="form-error" aria-live="polite"></div>
       </div>
+
       <div id="adminPanelBox" style="display:none;">
-        <button class="btn" id="adminLogoutBtn">Cerrar sesión</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <button class="btn" id="adminLogoutBtn">Cerrar sesión</button>
+        </div>
+
         <div class="admin-panel">
           <div id="combo3x2Admin"></div>
 
-<!-- Pegar dentro de la sección Administrador (admin-panel) -->
-<form id="promoForm" style="margin-bottom:1rem;">
-  <input type="hidden" id="promoId" />
-  <input type="text" id="promoTitle" placeholder="Título de la promo (ej. Combo 3x2)" required style="padding:0.5rem; width:48%;"/>
-  <input type="text" id="promoText" placeholder="Texto (lo que se muestra en inicio)" required style="padding:0.5rem; width:48%;"/>
-  <input type="number" id="promoMinItems" placeholder="Min items (opcional)" min="0" style="padding:0.5rem; width:32%; margin-top:0.6rem;"/>
-  <input type="number" id="promoPercent" placeholder="Descuento % (opcional)" min="0" max="100" style="padding:0.5rem; width:32%; margin-top:0.6rem;"/>
-  <select id="promoApplyTo" style="padding:0.5rem; width:32%; margin-top:0.6rem;">
-    <option value="all">Aplicar a: Todos</option>
-    <option value="eligibles">Aplicar a: Elegibles Combo 3x2</option>
-  </select>
- <input type="text" id="promoImage" placeholder="URL imagen (opcional)" style="padding:0.5rem; width:48%; margin-top:0.6rem;" />
-  <div style="margin-top:0.6rem;">
-    <button class="btn" type="button" onclick="savePromoFromAdmin()">Guardar Promo</button>
-    <button class="btn" type="button" style="background:#bbb;color:#222;margin-left:0.6rem;" onclick="clearPromoForm()">Limpiar</button>
-  </div>
-</form>
+          <!-- Promos form -->
+          <form id="promoForm" class="admin-form">
+            <input type="hidden" id="promoId" />
+            <input type="text" id="promoTitle" placeholder="Título de la promo (ej. Combo 3x2)" required />
+            <input type="text" id="promoText" placeholder="Texto (separar con ; para lista)" required />
+            <input type="number" id="promoMinItems" placeholder="Min items (opcional)" min="0" />
+            <input type="number" id="promoPercent" placeholder="Descuento % (opcional)" min="0" max="100" />
+            <select id="promoApplyTo">
+              <option value="all">Aplicar a: Todos</option>
+              <option value="eligibles">Aplicar a: Elegibles Combo 3x2</option>
+            </select>
+            <input type="text" id="promoImage" placeholder="URL imagen (opcional)" />
+            <div style="display:flex;gap:8px;">
+              <button class="btn" type="button" onclick="savePromoFromAdmin()">Guardar Promo</button>
+              <button class="btn" type="button" style="background:#bbb;color:#222;" onclick="clearPromoForm()">Limpiar</button>
+            </div>
+          </form>
 
-<div id="promoList"></div>
+          <div id="promoList"></div>
 
-
-          <h2>Configuración del sitio</h2>
-          <div style="margin-bottom:1rem;">
-            <label style="display:block;margin-bottom:0.4rem;">Frase/Marquilla (neón) del encabezado:</label>
-            <input type="text" id="adminSiteTitle" placeholder="ElectroFlips Xperience" style="padding:0.5rem; width:70%;" />
-            <button class="btn" id="saveSiteTitleBtn" style="display:inline-block; margin-left:0.6rem;">Guardar</button>
+          <!-- Site title -->
+          <h3>Configuración del sitio</h3>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <input type="text" id="adminSiteTitle" placeholder="Floppy Xperience Distribución" />
+            <button class="btn" id="saveSiteTitleBtn">Guardar</button>
           </div>
 
-          <h2>Descuento por compra múltiple</h2>
-          <div style="margin-bottom:1rem; display:flex; gap:0.6rem; align-items:center;">
-            <label style="display:flex;align-items:center;gap:0.4rem;">
+          <!-- Bulk discount -->
+          <h3>Descuento por compra múltiple</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <label style="display:flex;align-items:center;gap:6px;">
               <input type="checkbox" id="bulkEnabled" />
               Activar descuento por cantidad
             </label>
-            <label>
-              <span style="display:block;font-size:0.9rem;">Mínimo items</span>
-              <input type="number" id="bulkMinItems" min="1" value="4" style="width:100px; padding:0.4rem;" />
-            </label>
-            <label>
-              <span style="display:block;font-size:0.9rem;">Descuento (%)</span>
-              <input type="number" id="bulkPercent" min="1" max="100" value="20" style="width:100px; padding:0.4rem;" />
-            </label>
-            <label>
-              <span style="display:block;font-size:0.9rem;">Aplicar a</span>
-              <select id="bulkApplyTo" style="padding:0.4rem;">
-                <option value="all">Todos los productos</option>
-                <option value="eligibles">Sólo elegibles Combo 3x2</option>
-              </select>
-            </label>
+            <input type="number" id="bulkMinItems" min="1" value="4" style="width:100px;" />
+            <input type="number" id="bulkPercent" min="1" max="100" value="20" style="width:100px;" />
+            <select id="bulkApplyTo">
+              <option value="all">Todos los productos</option>
+              <option value="eligibles">Sólo elegibles Combo 3x2</option>
+            </select>
             <button class="btn" id="saveBulkBtn">Guardar</button>
           </div>
 
-          <h2>Agregar Producto</h2>
-          <form id="addProductForm">
-            <input type="text" id="adminNombre" placeholder="Nombre" required/>
-            <input type="text" id="adminDescripcion" placeholder="Descripción (separa por ;)" required/>
-            <input type="number" id="adminPrecio" placeholder="Precio" min="0" required/>
-            <input type="text" id="adminCategoria" placeholder="Categoría" required/>
-            <input type="text" id="adminImagen" placeholder="URL Imagen" required/>
-            <input type="number" id="adminOferta" placeholder="Precio Oferta (opcional)" min="0"/>
-            <input type="text" id="adminPromo" placeholder="Promoción especial (opcional)"/>
+          <!-- Add product -->
+          <h3>Agregar Producto</h3>
+          <form id="addProductForm" class="admin-form">
+            <input type="text" id="adminNombre" placeholder="Nombre" required />
+            <input type="text" id="adminDescripcion" placeholder="Descripción (separa por ;)" required />
+            <input type="number" id="adminPrecio" placeholder="Precio" min="0" required />
+            <input type="text" id="adminCategoria" placeholder="Categoría" required />
+            <input type="text" id="adminImagen" placeholder="URL Imagen" required />
+            <input type="number" id="adminOferta" placeholder="Precio Oferta (opcional)" min="0" />
+            <input type="text" id="adminPromo" placeholder="Promoción especial (opcional)" />
             <label style="display:flex;align-items:center;gap:0.5rem;">
-              <input type="checkbox" id="adminFeatured"/>
-              Marcar como favorito (mostrar icono en inicio)
+              <input type="checkbox" id="adminFeatured" />
+              Marcar como favorito
             </label>
-            <input type="number" id="adminStock" placeholder="Stock (ej. 10)" min="0" />
+            <label style="display:flex;align-items:center;gap:0.5rem;">
+              <input type="checkbox" id="adminAgotado" />
+              Agotado (no disponible)
+            </label>
             <button type="submit" class="btn">Guardar Producto</button>
           </form>
 
-          <h2>Editar Producto</h2>
+          <!-- Edit product -->
+          <h3>Editar Producto</h3>
           <div id="editFormBox" style="display:none;">
-            <form id="editProductForm">
-              <input type="hidden" id="editId"/>
-              <input type="text" id="editNombre" placeholder="Nombre" required/>
-              <input type="text" id="editDescripcion" placeholder="Descripción (separa por ;)" required/>
-              <input type="number" id="editPrecio" placeholder="Precio" min="0" required/>
-              <input type="text" id="editCategoria" placeholder="Categoría" required/>
-              <input type="text" id="editImagen" placeholder="URL Imagen" required/>
-              <input type="number" id="editOferta" placeholder="Precio Oferta (opcional)" min="0"/>
-              <input type="text" id="editPromo" placeholder="Promoción especial (opcional)"/>
+            <form id="editProductForm" class="admin-form">
+              <input type="hidden" id="editId" />
+              <input type="text" id="editNombre" placeholder="Nombre" required />
+              <input type="text" id="editDescripcion" placeholder="Descripción (separa por ;)" required />
+              <input type="number" id="editPrecio" placeholder="Precio" min="0" required />
+              <input type="text" id="editCategoria" placeholder="Categoría" required />
+              <input type="text" id="editImagen" placeholder="URL Imagen" required />
+              <input type="number" id="editOferta" placeholder="Precio Oferta (opcional)" min="0" />
+              <input type="text" id="editPromo" placeholder="Promoción especial (opcional)" />
               <label style="display:flex;align-items:center;gap:0.5rem;">
-                <input type="checkbox" id="editFeatured"/>
-                Marcar como favorito (mostrar icono en inicio)
+                <input type="checkbox" id="editFeatured" />
+                Marcar como favorito
               </label>
-              <input type="number" id="editStock" placeholder="Stock (ej. 10)" min="0" />
+              <label style="display:flex;align-items:center;gap:0.5rem;">
+                <input type="checkbox" id="editAgotado" />
+                Agotado (no disponible)
+              </label>
 
-              <button type="submit" class="btn">Actualizar Producto</button>
-              <button type="button" class="btn" id="editCancelBtn" style="background:#bbb; color:#222;">Cancelar</button>
+              <div style="display:flex;gap:8px;">
+                <button type="submit" class="btn">Actualizar Producto</button>
+                <button type="button" class="btn" id="editCancelBtn" style="background:#bbb;color:#222;">Cancelar</button>
+              </div>
             </form>
           </div>
 
-          <h2>Productos Existentes</h2>
+          <h3>Productos Existentes</h3>
           <div id="adminProductList"></div>
         </div>
       </div>
     </section>
   </main>
 
+  <!-- Mobile sidebar + overlay -->
+  <div id="mobileNavOverlay" class="mobile-nav-overlay" aria-hidden="true"></div>
 
-<div id="mobileNavOverlay" class="mobile-nav-overlay" aria-hidden="true"></div>
+  <aside id="mobileSidebar" class="mobile-sidebar" aria-hidden="true" role="dialog" aria-label="Menú">
+    <div class="mobile-sidebar-header">
+      <div id="brandNeonMobile" class="brand-neon-mobile" aria-hidden="false">Floppy Xperience Distribución</div>
+      <button id="mobileCloseBtn" class="mobile-close" aria-label="Cerrar menú">×</button>
+    </div>
 
-<aside id="mobileSidebar" class="mobile-sidebar" aria-hidden="true" role="dialog" aria-label="Menú">
-  <div class="mobile-sidebar-header">
-    <!-- texto neón (se actualizará automáticamente desde JS) -->
-    <div id="brandNeonMobile" class="brand-neon-mobile">ElectroFlips Xperience</div>
-    <button id="mobileCloseBtn" class="mobile-close" aria-label="Cerrar menú">×</button>
+    <nav class="mobile-nav-list" role="navigation" aria-label="Navegación principal">
+      <ul>
+        <li><a href="#" onclick="showSection('inicio'); closeMobileNav();">Inicio</a></li>
+        <li><a href="#" onclick="showSection('catalogo'); closeMobileNav();">Catálogo</a></li>
+        <li><a href="#" onclick="showSection('carrito'); closeMobileNav();">Carrito</a></li>
+        <li><a href="#" onclick="showSection('contacto'); closeMobileNav();">Contacto</a></li>
+        <li><a href="#" onclick="showSection('admin'); closeMobileNav();">Administrador</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <!-- Floating action bubbles: Ver carrito + WhatsApp -->
+  <div id="floatBubbles" aria-hidden="false">
+    <button id="cartBubbleBtn" class="fab fab-cart" aria-label="Ver carrito">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M6 6h15l-1.5 9h-11L6 6z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="10" cy="20" r="1" fill="currentColor"/>
+        <circle cx="18" cy="20" r="1" fill="currentColor"/>
+      </svg>
+      <span id="cartBubbleBadge" class="fab-badge" aria-hidden="true">0</span>
+    </button>
+
+    <button id="whatsappBubbleBtn" class="fab fab-ws" aria-label="Enviar por WhatsApp">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M21 12a9 9 0 1 0-2.6 6.04L22 22l-3.96-1.64A9.01 9.01 0 0 0 21 12z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M16.5 11.2c-.2-.1-.9-.4-1-.4s-.3 0-.5.2c-.1.1-.5.4-.6.5-.1.1-.2.2-.3.4-.1.1 0 .3.1.5.1.2.3.5.6.8.2.2.4.4.6.6.3.3.5.5.6.6.2.1.4 0 .5-.1.1-.1.6-.6.9-.9.3-.3.4-.5.5-.6.1-.2 0-.3 0-.4 0-.2-.5-.3-.9-.6z" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
   </div>
-
-  <nav class="mobile-nav-list" role="navigation" aria-label="Navegación principal">
-    <ul>
-      <li><a href="#" onclick="showSection('inicio'); closeMobileNav();">Inicio</a></li>
-      <li><a href="#" onclick="showSection('catalogo'); closeMobileNav();">Catálogo</a></li>
-      <li><a href="#" onclick="showSection('carrito'); closeMobileNav();">Carrito</a></li>
-      <li><a href="#" onclick="showSection('contacto'); closeMobileNav();">Contacto</a></li>
-      <li><a href="#" onclick="showSection('admin'); closeMobileNav();">Administrador</a></li>
-    </ul>
-  </nav>
-</aside>
-
-<!-- Floating action bubbles: Ver carrito + WhatsApp -->
-<div id="floatBubbles" aria-hidden="false">
-  <button id="cartBubbleBtn" class="fab fab-cart" aria-label="Ver carrito">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 6h15l-1.5 9h-11L6 6z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="10" cy="20" r="1" fill="currentColor"/>
-      <circle cx="18" cy="20" r="1" fill="currentColor"/>
-    </svg>
-    <span id="cartBubbleBadge" class="fab-badge" aria-hidden="true">0</span>
-  </button>
-
-  <button id="whatsappBubbleBtn" class="fab fab-ws" aria-label="Enviar por WhatsApp">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M21 12a9 9 0 1 0-2.6 6.04L22 22l-3.96-1.64A9.01 9.01 0 0 0 21 12z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M16.5 11.2c-.2-.1-.9-.4-1-.4s-.3 0-.5.2c-.1.1-.5.4-.6.5-.1.1-.2.2-.3.4-.1.1 0 .3.1.5.1.2.3.5.6.8.2.2.4.4.6.6.3.3.5.5.6.6.2.1.4 0 .5-.1.1-.1.6-.6.9-.9.3-.3.4-.5.5-.6.1-.2 0-.3 0-.4 0-.2-.5-.3-.9-.6z" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </button>
-</div>
 
   <!-- Modal de producto -->
   <div id="productModal" class="modal" aria-hidden="true">
-    <div class="modal-content">
-      <button class="modal-close" onclick="closeProductModal()">×</button>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="modal-close" onclick="closeProductModal()" aria-label="Cerrar">×</button>
       <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;">
         <img id="modalImage" src="images/placeholder.png" alt="Imagen" style="width:180px;height:180px;object-fit:cover;border-radius:8px;">
         <div style="flex:1;">
@@ -255,7 +268,6 @@
           <div id="modalPromoTag" style="color:#00ff85;font-weight:bold;margin-bottom:0.4rem;"></div>
           <div id="modalDesc"></div>
           <div id="modalPrice" style="margin-top:0.6rem;font-size:1.1rem;color:#00ff85;font-weight:bold;"></div>
-          <div id="modalStock" style="margin-top:0.4rem;font-weight:bold;color:#ffb3b3;"></div>
           <div style="margin-top:0.8rem;">
             <button id="modalBuyBtn" class="btn">Comprar</button>
             <button class="btn" style="background:#bbb;color:#222;margin-left:0.6rem;" onclick="closeProductModal()">Cerrar</button>
@@ -266,13 +278,13 @@
   </div>
 
   <footer>
-    <p>© 2025 ElectroFlips Xperience. Todos los derechos reservados.</p>
+    <p>© 2025 Electroflips Xperience. Todos los derechos reservados.</p>
   </footer>
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
   const firebaseConfig = {
     apiKey: "AIzaSyDPxTBxGbkP_LCmT_4Od8lRFdBF80CC6v4",
     authDomain: "electroflips-experience.firebaseapp.com",
@@ -282,9 +294,10 @@
     appId: "1:431548857935:web:d529383a31128fe077b43a",
     measurementId: "G-XPPM14QKQ7"
   };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-</script>
-<script src="app.js"></script>
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
+
+  <script src="app.js"></script>
 </body>
 </html>
