@@ -1119,3 +1119,106 @@ main, .section {
   .card-price { font-size: 0.98rem; font-weight: 800; color: var(--neon-cyan, #00ffd6); }
   .product-card .precio, .product-card .oferta { font-size: 0.98rem; }
 }
+
+
+
+
+
+
+
+
+
+
+/* tutorial.css (estilos centrados - versión v2)
+   - Mantener este archivo junto a tutorial.js y enlazar en index.html.
+   - Asegura que los botones del tutorial sean clicables aún si el cuadro está encima del área explicada.
+*/
+
+/* Overlay: permitir click-through (no bloquear la página) */
+#efTutorialOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3,6,9,0.55);
+  z-index: 9998;
+  display: none;
+}
+#efTutorialOverlay.visible { display: block; }
+
+/* Tooltip centrado; pointer-events: none permite click-through excepto en controles */
+#efTutorialTooltip {
+  pointer-events: none;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  z-index: 9999;
+  width: min(720px, 92%);
+  max-width: 720px;
+  background: linear-gradient(180deg,#0f1318,#0b0b0d);
+  color: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.04);
+  font-size: 0.98rem;
+}
+#efTutorialTooltip h3 { margin: 0 0 8px 0; color: var(--neon-pink,#ff295e); }
+#efTutBody { color: #cfeee6; line-height: 1.35; }
+
+/* Controles activos: botones del tooltip son interactivos */
+#efTutControls {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+#efTutControls .btn.small { padding: 6px 10px; font-size: 0.88rem; }
+
+/* Prompt inicial (No, gracias / Sí, empezar) */
+#efTutorialPrompt {
+  position: fixed;
+  left: 50%;
+  top: 14%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  width: min(720px, 92%);
+  max-width: 720px;
+  background: linear-gradient(180deg,#0f1318,#0b0b0d);
+  color: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.7);
+  display: none;
+  pointer-events: auto;
+}
+#efTutorialPrompt.open { display: block; }
+
+/* Highlight en elementos (sombra + outline) */
+.ef-tut-highlight {
+  position: relative;
+  z-index: 10002 !important;
+  box-shadow: 0 18px 60px rgba(255,41,94,0.12) !important;
+  outline: 3px solid rgba(255,41,94,0.12) !important;
+  border-radius: 10px;
+  transform: translateY(-4px);
+  transition: box-shadow 220ms ease, outline 220ms ease, transform 220ms ease;
+}
+
+/* Glow pulsante para botones (carrito / whatsapp) */
+.ef-tut-glow {
+  animation: efGlowPulse 1.6s infinite;
+  box-shadow: 0 12px 40px rgba(255,41,94,0.18), 0 6px 26px rgba(255,41,94,0.12);
+  transform: translateY(-2px);
+}
+@keyframes efGlowPulse {
+  0% { transform: scale(1); box-shadow: 0 8px 24px rgba(255,41,94,0.12); }
+  50% { transform: scale(1.06); box-shadow: 0 18px 54px rgba(255,41,94,0.22); }
+  100% { transform: scale(1); box-shadow: 0 8px 24px rgba(255,41,94,0.12); }
+}
+
+/* Mobile: tooltip centrado y ancho completo */
+@media (max-width: 720px) {
+  #efTutorialTooltip { width: calc(100% - 24px); left: 50%; top: 50%; transform: translate(-50%,-50%); }
+  #efTutorialPrompt { width: calc(100% - 24px); top: 8%; left: 50%; transform: translateX(-50%); }
+}
