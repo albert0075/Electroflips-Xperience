@@ -225,7 +225,7 @@ function renderCatalog() {
         <div class="card-price" aria-hidden="false">${precioHtml}</div>
 
         <div class="card-actions">
-          ${prod.agotado ? `<button class="btn" disabled style="opacity:0.5;cursor:not-allowed;">Agotado</button>` : `<button class="btn" onclick="addToCart('${prod.id}')">Comprar</button>`}
+          ${prod.agotado ? `<button class="btn" disabled style="opacity:0.5;cursor:not-allowed;">Agotado</button>` : `<button class="btn" onclick="addToCart('${prod.id}')">Add carrito</button>`}
           <button class="btn small ver-mas-btn" onclick="showProductDetails('${prod.id}')">Mas Info</button>
         </div>
 
@@ -1124,3 +1124,424 @@ function setupMobileColumnsControl() {
     });
   })();
 });
+
+
+
+
+
+
+
+
+/* tutorial.js (versión centrada, con glow en botones carrito/whatsapp,
+   comportamiento de cierre en "No, gracias" / "Saltar" / "Finalizar",
+   y permite que los botones del tutorial sean clicables aun cuando el recuadro
+   esté sobre la parte que se está explicando).
+   - Diseñado para cargarse DESPUÉS de app.js (usa showSection/renderCatalog/renderCart si existen).
+   - Colocar en la raíz del proyecto o en assets/ y enlazar en index.html.
+*/
+(function () {
+  if (window.__electroflips_tutorial_installed_centered_v2) return;
+  window.__electroflips_tutorial_installed_centered_v2 = true;
+
+  const STEPS = [
+    {
+      id: 'zoom',
+      title: 'Mejor visualización',
+      text: 'Recomendamos usar zoom del navegador al 80% para una mejor visualización en escritorio. Puedes cambiarlo desde el menú del navegador (Ctrl/Cmd + -).'
+    },
+    {
+      id: 'nav',
+      selector: 'nav.main-nav',
+      title: 'Navegación principal',
+      text: 'Usa la barra de navegación para moverte entre Inicio, Catálogo, Carrito y Contacto.'
+    },
+    {
+      id: 'favorites',
+      selector: '#favoritesContainer',
+      title: 'Favoritos',
+      text: 'En Favoritos verás servicios destacados. Toca uno para ver detalles.'
+    },
+    {
+      id: 'promos',
+      selector: '#promosContainer',
+      title: 'Promociones',
+      text: 'Aquí se muestran promociones. Usa "Ver en catálogo" para navegar al producto en el catálogo.'
+    },
+    {
+      id: 'catalog_open',
+
+      title: 'Catálogo (abierto)',
+      text: 'Abrimos el catálogo para que veas las funciones: filtrar, ver detalles y comprar. Cuando pulses Comprar el producto se agregará al carrito.',
+      action: function () {
+        if (typeof showSection === 'function') try { showSection('catalogo'); } catch (e) {}
+        if (typeof renderCatalog === 'function') try { renderCatalog(); } catch (e) {}
+      }
+    },
+    {
+      id: 'productCard',
+      selector: '.product-card',
+      title: 'Tarjetas de producto',
+      text: 'Cada tarjeta muestra imagen, nombre y precio. Usa "Mas Info" para ver el detalle o "Comprar" para agregar el producto al carrito. (Después debes abrir el Carrito para ver los productos que vas a comprar.)'
+    },
+    {
+      id: 'productModal',
+      title: 'Detalles del producto (ejemplo)',
+      text: 'Al abrir "Mas Info" verás un modal con la imagen ampliada, descripción y el botón Comprar. Si el producto está agotado no podrás comprarlo.'
+    },
+    {
+      id: 'cart_open',
+      selector: '#cartBubbleBtn',
+      title: 'Carrito (abierto)',
+      text: 'Abrimos el carrito para que veas cómo cambiar cantidades, eliminar productos y finalizar compra. Recuerda: al dar click en Comprar el producto se añade al carrito; luego debes dar click en el botón Carrito para revisar y finalizar.',
+      action: function () {
+        if (typeof showSection === 'function') try { showSection('carrito'); } catch (e) {}
+        if (typeof renderCart === 'function') try { renderCart(); } catch (e) {}
+      },
+      glowSelector: '#cartBubbleBtn'
+    },
+    {
+      id: 'whatsapp_glow',
+      selector: '#whatsappBubbleBtn',
+      title: 'Contacto por WhatsApp',
+      text: 'Este botón abre un chat de WhatsApp con la tienda. Puedes hacer preguntas o finalizar tu compra. Mientras explicamos, el botón se iluminará para llamar la atención.',
+      glowSelector: '#whatsappBubbleBtn'
+    },
+    {
+      id: 'contact',
+      selector: '#contacto',
+      title: 'Contacto y redes',
+      text: 'En Contacto encontrarás correo, WhatsApp y redes sociales para soporte.'
+    },
+    {
+      id: 'end',
+      title: '¡Listo!',
+      text: 'Recorrido finalizado. El tutorial se puede cerrar con "Finalizar", "Saltar" o "No, gracias". Si quieres repetirlo ejecuta window.startEfTutorial().'
+    }
+  ];
+
+  /* Inyecta estilos (si no existen) */
+  function injectTutorialStyles() {
+    if (document.getElementById('tutorialStyles_centered_v2')) return;
+    const css = document.createElement('style');
+    css.id = 'tutorialStyles_centered_v2';
+    css.innerHTML = `
+/* Styles para tutorial centrado y comportamiento interactivo */
+#efTutorialOverlay { position: fixed; inset:0; background: rgba(3,6,9,0.55); z-index: 9998; display:none; }
+#efTutorialOverlay.visible { display:block; }
+
+/* Tooltip centrado; pointer-events: none permite que clicks pasen al contenido detrás
+   excepto en los botones (que tienen pointer-events:auto). Esto permite interactuar
+   con elementos de la página aun cuando el tooltip esté encima. */
+#efTutorialTooltip {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  z-index: 9999;
+  width: min(720px, 92%);
+  max-width: 720px;
+  background: linear-gradient(180deg,#0f1318,#0b0b0d);
+  color: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.04);
+  font-size: 0.98rem;
+  pointer-events: none; /* permite click-through excepto en controles */
+}
+#efTutorialTooltip h3 { margin:0 0 8px 0; color: var(--neon-pink,#ff295e); }
+#efTutBody { color: #cfeee6; line-height:1.35; }
+
+/* Controls son interactivos */
+#efTutControls { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; pointer-events: auto; }
+#efTutControls .btn.small { padding:6px 10px; font-size:0.88rem; }
+
+/* Prompt inicial */
+#efTutorialPrompt {
+  position: fixed; left:50%; top:14%; transform:translateX(-50%); z-index:10001;
+  width: min(720px,92%); max-width:720px;
+  background: linear-gradient(180deg,#0f1318,#0b0b0d);
+  color:#fff; padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.04);
+  box-shadow:0 18px 60px rgba(0,0,0,0.7); display:none;
+  pointer-events: auto;
+}
+#efTutorialPrompt.open { display:block; }
+
+/* Highlight en elementos (sombra + outline) */
+.ef-tut-highlight {
+  position: relative;
+  z-index: 10002 !important;
+  box-shadow: 0 18px 60px rgba(255,41,94,0.12) !important;
+  outline: 3px solid rgba(255,41,94,0.12) !important;
+  border-radius: 10px;
+  transform: translateY(-4px);
+  transition: box-shadow 220ms ease, outline 220ms ease, transform 220ms ease;
+}
+
+/* Glow pulsante para botones (carrito / whatsapp) */
+.ef-tut-glow {
+  animation: efGlowPulse 1.6s infinite;
+  box-shadow: 0 12px 40px rgba(255,41,94,0.18), 0 6px 26px rgba(255,41,94,0.12);
+  transform: translateY(-2px);
+}
+@keyframes efGlowPulse {
+  0% { transform: scale(1); box-shadow: 0 8px 24px rgba(255,41,94,0.12); }
+  50% { transform: scale(1.06); box-shadow: 0 18px 54px rgba(255,41,94,0.22); }
+  100% { transform: scale(1); box-shadow: 0 8px 24px rgba(255,41,94,0.12); }
+}
+
+/* Mobile: tooltip centrado y ancho completo */
+@media (max-width:720px) {
+  #efTutorialTooltip { width: calc(100% - 24px); left: 50%; top: 50%; transform: translate(-50%,-50%); }
+  #efTutorialPrompt { width: calc(100% - 24px); top: 8%; left: 50%; transform: translateX(-50%); }
+}
+    `;
+    document.head.appendChild(css);
+  }
+
+  /* Crea DOM del tutorial */
+  function createTutorialDom() {
+    if (document.getElementById('efTutorialOverlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'efTutorialOverlay';
+
+    const tooltip = document.createElement('div');
+    tooltip.id = 'efTutorialTooltip';
+    tooltip.innerHTML = `
+      <h3 id="efTutTitle"></h3>
+      <div id="efTutBody"></div>
+      <div id="efTutControls">
+        <button id="efTutPrev" class="btn small">Anterior</button>
+        <button id="efTutNext" class="btn small">Siguiente</button>
+        <button id="efTutSkip" class="btn small" style="background:#bbb;color:#222;">Saltar</button>
+      </div>
+    `;
+
+    const prompt = document.createElement('div');
+    prompt.id = 'efTutorialPrompt';
+    prompt.innerHTML = `
+      <div>
+        <h3>¿Deseas hacer el tutorial?</h3>
+        <p>Recomendamos usar zoom 80% para mejor visualización. El tutorial mostrará cómo usar la página.</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+          <button id="efStartTut" class="btn">Sí, empezar</button>
+          <button id="efSkipTut" class="btn" style="background:#bbb;color:#222;">No, gracias</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(tooltip);
+    document.body.appendChild(prompt);
+
+    // Bind controls
+    document.getElementById('efTutPrev').addEventListener('click', () => showStep(currentIndex - 1));
+    document.getElementById('efTutNext').addEventListener('click', () => {
+      if (currentIndex >= STEPS.length - 1) return endTutorial();
+      showStep(currentIndex + 1);
+    });
+    document.getElementById('efTutSkip').addEventListener('click', endTutorial);
+    document.getElementById('efStartTut').addEventListener('click', () => { closePrompt(); startTutorial(); });
+    document.getElementById('efSkipTut').addEventListener('click', endTutorial);
+
+    // Overlay click advances by default
+    overlay.addEventListener('click', () => {
+      if (!isRunning) return;
+      if (currentIndex >= STEPS.length - 1) endTutorial();
+      else showStep(currentIndex + 1);
+    });
+
+    // Keyboard navigation while running
+    document.addEventListener('keydown', (e) => {
+      if (!isRunning) return;
+      if (e.key === 'Escape') endTutorial();
+      if (e.key === 'ArrowRight') {
+        if (currentIndex >= STEPS.length - 1) endTutorial();
+        else showStep(currentIndex + 1);
+      }
+      if (e.key === 'ArrowLeft') showStep(currentIndex - 1);
+    });
+  }
+
+  function openPrompt() {
+    const p = document.getElementById('efTutorialPrompt');
+    if (!p) return;
+    p.classList.add('open');
+  }
+  function closePrompt() {
+    const p = document.getElementById('efTutorialPrompt');
+    if (!p) return;
+    p.classList.remove('open');
+  }
+
+  /* Highlight & glow helpers */
+  let highlightedEl = null;
+  const activeGlows = new Set();
+
+  function highlightElement(el) {
+    clearHighlight();
+    if (!el) return;
+    highlightedEl = el;
+    el.classList.add('ef-tut-highlight');
+    try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
+  }
+  function clearHighlight() {
+    if (highlightedEl) {
+      highlightedEl.classList.remove('ef-tut-highlight');
+      highlightedEl = null;
+    }
+  }
+
+  function addGlow(selector) {
+    try {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      el.classList.add('ef-tut-glow');
+      activeGlows.add(selector);
+    } catch (e) {}
+  }
+  function removeGlow(selector) {
+    try {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      el.classList.remove('ef-tut-glow');
+      activeGlows.delete(selector);
+    } catch (e) {}
+  }
+  function clearAllGlows() {
+    for (const s of Array.from(activeGlows)) removeGlow(s);
+    activeGlows.clear();
+  }
+
+  /* Flow control */
+  let currentIndex = 0;
+  let isRunning = false;
+
+  function startTutorial() {
+    injectTutorialStyles();
+    createTutorialDom();
+    isRunning = true;
+    document.getElementById('efTutorialOverlay').classList.add('visible');
+    showStep(0);
+  }
+
+  function showStep(index) {
+    if (index < 0) index = 0;
+    if (index >= STEPS.length) { endTutorial(); return; }
+    currentIndex = index;
+    const step = STEPS[index];
+
+    // Update tooltip content
+    const titleEl = document.getElementById('efTutTitle');
+    const bodyEl = document.getElementById('efTutBody');
+    titleEl.innerText = step.title || '';
+    bodyEl.innerText = step.text || '';
+
+    // Update controls visibility/text
+    document.getElementById('efTutPrev').style.display = index === 0 ? 'none' : 'inline-block';
+    document.getElementById('efTutNext').innerText = (index === STEPS.length - 1) ? 'Finalizar' : 'Siguiente';
+
+    // Clear previous highlights/glows
+    clearHighlight();
+    clearAllGlows();
+
+    // If step has an action, run it (e.g., open catalog or cart)
+    if (typeof step.action === 'function') {
+      try { step.action(); } catch (e) { console.error('tutorial step action error', e); }
+      // After action, try to highlight the selector (if any)
+      setTimeout(() => {
+        if (step.selector) {
+          const el = document.querySelector(step.selector);
+          if (el) highlightElement(el);
+        }
+        if (step.glowSelector) addGlow(step.glowSelector);
+      }, 360);
+      return;
+    }
+
+    // If step has glowSelector, add glow
+    if (step.glowSelector) addGlow(step.glowSelector);
+
+    // Try to highlight the element for the step (but tooltip stays centered)
+    if (step.selector) {
+      const el = document.querySelector(step.selector);
+      if (el) highlightElement(el);
+    }
+  }
+
+
+
+
+
+
+
+
+
+// Reemplaza la función `endTutorial` en tu tutorial.js por esta versión.
+// Esta versión elimina completamente el overlay, tooltip y prompt del DOM,
+// quita los estilos inyectados y limpia la marca global para que el tutorial
+// ya no quede encima de la página después de pulsar "No, gracias", "Saltar" o "Finalizar".
+
+function endTutorial() {
+  // marcar como no corriendo para que manejadores ignorados por isRunning queden inactivos
+  isRunning = false;
+
+  // limpiar efectos visuales
+  try { clearHighlight(); } catch (e) {}
+  try { clearAllGlows(); } catch (e) {}
+
+  // cerrar modal de producto si está abierto
+  try { if (typeof closeProductModal === 'function') closeProductModal(); } catch (e) {}
+
+  // quitar elementos del DOM para asegurar que no queden encima
+  ['efTutorialOverlay', 'efTutorialTooltip', 'efTutorialPrompt'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
+  });
+
+  // quitar estilos inyectados (si existe)
+  const styleIds = ['tutorialStyles_centered_v2', 'tutorialStyles_centered', 'tutorialStyles_centered_v3'];
+  styleIds.forEach(sid => {
+    const s = document.getElementById(sid);
+    if (s && s.parentNode) s.parentNode.removeChild(s);
+  });
+
+  // eliminar referencias globales del tutorial para evitar re-entrada inesperada
+  try { delete window.startEfTutorial; } catch (e) {}
+  try { delete window.endEfTutorial; } catch (e) {}
+  try { delete window.__electroflips_tutorial_installed_centered_v2; } catch (e) {}
+  try { delete window.__electroflips_tutorial_installed_centered; } catch (e) {}
+  try { delete window.__electroflips_tutorial_installed_centered_v3; } catch (e) {}
+
+  // pequeña pausa para asegurar que no queden clases aplicadas
+  setTimeout(() => {
+    // intentar limpiar cualquier highlight o glow restante por si acaso
+    try { document.querySelectorAll('.ef-tut-highlight').forEach(n => n.classList.remove('ef-tut-highlight')); } catch(e){}
+    try { document.querySelectorAll('.ef-tut-glow').forEach(n => n.classList.remove('ef-tut-glow')); } catch(e){}
+  }, 80);
+}
+
+
+
+
+
+
+  // Expose controls to console
+  window.startEfTutorial = function () { closePrompt(); startTutorial(); };
+  window.endEfTutorial = endTutorial;
+
+  // Init on DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', () => {
+    injectTutorialStyles();
+    createTutorialDom();
+    // Delay a bit to avoid races con app.js
+    setTimeout(openPrompt, 500);
+  });
+})();
+
+
+
+
