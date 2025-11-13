@@ -1545,3 +1545,142 @@ function endTutorial() {
 
 
 
+/* Instrucciones:
+   Añade el siguiente bloque al final de tu app.js (o integra las funciones dentro del mismo archivo).
+   - Llama a highlightCartAndShowPrompt() desde addToCart (ya incluido en el ejemplo).
+   - Esto crea un tip flotante con mensaje "Finalizar compra" y hace parpadear el botón del carrito.
+*/
+
+/* ==================== UI: resaltado del carrito + mensaje/ flecha ==================== */
+
+/**
+ * Posiciona el tip cerca del elemento objetivo (ej. #cartBubbleBtn).
+ * Intenta ajustar para que la flecha apunte al centro del target.
+ */
+function positionTipNearTarget(targetEl, tipEl, opts = {}) {
+  if (!targetEl || !tipEl) return;
+  const rect = targetEl.getBoundingClientRect();
+  const tipRect = tipEl.getBoundingClientRect();
+  const gap = opts.gap || 12;
+  // Colocar encima y centrado horizontalmente respecto al target
+  const left = Math.max(8, rect.left + rect.width / 2 - tipRect.width / 2);
+  const top = Math.max(8, rect.top - tipRect.height - gap);
+  tipEl.style.left = `${left}px`;
+  tipEl.style.top = `${top}px`;
+
+  // Posicionar la "flecha" interna para que apunte al centro del target
+  const arrow = tipEl.querySelector('.cart-tip-arrow');
+  if (arrow) {
+    const targetCenterX = rect.left + rect.width / 2;
+    const arrowLeft = Math.min(tipRect.width - 18, Math.max(10, targetCenterX - left - 8));
+    arrow.style.left = `${arrowLeft}px`;
+  }
+}
+
+/**
+ * Muestra el tip flotante + hace "blink" el botón del carrito.
+ * - duration: ms que dura la animación y la visibilidad del tip.
+ * - clickable: si true, clic en el tip abre el carrito.
+ */
+function highlightCartAndShowPrompt({ duration = 4000, clickable = true } = {}) {
+  const cartBtn = document.getElementById('cartBubbleBtn');
+  if (!cartBtn) return;
+
+  // Añadir clase blink al botón
+  cartBtn.classList.remove('ef-cart-blink'); // reinicio
+  // Force reflow para reiniciar la animación si ya está aplicada
+  void cartBtn.offsetWidth;
+  cartBtn.classList.add('ef-cart-blink');
+
+  // Crear / reutilizar tip flotante
+  let tip = document.getElementById('cartPulseTip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'cartPulseTip';
+    tip.className = 'cart-pulse-tip';
+    tip.setAttribute('role', 'status');
+    tip.setAttribute('aria-live', 'polite');
+    tip.innerHTML = `
+      <div class="cart-tip-body">
+        <div class="cart-tip-text">Finalizar compra</div>
+        <div class="cart-tip-note">Haz clic en el carrito para revisar tu pedido</div>
+      </div>
+      <div class="cart-tip-arrow" aria-hidden="true"></div>
+    `;
+    document.body.appendChild(tip);
+  }
+
+  // Posicionar inmediatamente y al redimensionar
+  positionTipNearTarget(cartBtn, tip);
+  const onResize = () => positionTipNearTarget(cartBtn, tip);
+  window.addEventListener('resize', onResize);
+
+  // Mostrar tip con animación
+  tip.classList.remove('show');
+  // Forzar reflow para reiniciar
+  void tip.offsetWidth;
+  tip.classList.add('show');
+
+  // click abre carrito si se permite
+  tip.onclick = (e) => {
+    e.stopPropagation();
+    if (clickable) {
+      cartBubbleHandler();
+      tip.classList.remove('show');
+    }
+  };
+
+  // Quitar efectos al terminar
+  setTimeout(() => {
+    try { cartBtn.classList.remove('ef-cart-blink'); } catch (e) {}
+    try { tip.classList.remove('show'); } catch (e) {}
+    window.removeEventListener('resize', onResize);
+    // opcional: remover del DOM tras animación para evitar acumulación
+    setTimeout(() => {
+      const t = document.getElementById('cartPulseTip');
+      if (t && !t.classList.contains('show')) {
+        t.parentNode && t.parentNode.removeChild(t);
+      }
+    }, 420);
+  }, duration);
+}
+
+/* Exponer para debug/control manual */
+window.showCartHighlightTip = function (opts) { highlightCartAndShowPrompt(opts); };
+
+/* ==================== Integración con addToCart ==================== */
+/* Inserta/modifica la llamada en tu addToCart para que dispare la animación al añadir producto.
+   En tu addToCart ya existente, justo después de showToast() y renderCart() se debe llamar:
+     highlightCartAndShowPrompt({ duration: 4500 });
+   A continuación hay un ejemplo minimalista que sustituye/inserta esa llamada.
+*/
+
+const _orig_addToCart = window.addToCart || null;
+window.addToCart = function (id) {
+  // Si ya tenías la función (en este mismo archivo), ejecutarla para mantener la lógica previa
+  if (typeof _orig_addToCart === 'function') {
+    _orig_addToCart(id);
+    // Llamada extra: mostrar tip y parpadeo
+    try { highlightCartAndShowPrompt({ duration: 4500, clickable: true }); } catch (e) { console.error(e); }
+    return;
+  }
+
+  // Si no existe la impl original (no debería pasar), fallback simple
+  if (!id) return;
+  try {
+    // buscar producto y replicar comportamiento mínimo
+    const prod = PRODUCTS.find(p => String(p.id) === String(id));
+    if (!prod) { showToast('Producto no encontrado.'); return; }
+    if (prod.agotado) { showToast('Producto agotado.'); return; }
+    const precioFinal = prod.oferta ? prod.oferta : prod.precio;
+    const existing = cart.find(p => String(p.id) === String(id));
+    if (existing) existing.cantidad += 1;
+    else cart.push({ ...prod, precio: precioFinal, cantidad: 1 });
+    showToast('Producto agregado al carrito');
+    renderCart();
+    updateCartBubble();
+    highlightCartAndShowPrompt({ duration: 4500, clickable: true });
+  } catch (e) {
+    console.error('addToCart error (fallback):', e);
+  }
+};
