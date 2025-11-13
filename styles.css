@@ -1222,3 +1222,103 @@ main, .section {
   #efTutorialTooltip { width: calc(100% - 24px); left: 50%; top: 50%; transform: translate(-50%,-50%); }
   #efTutorialPrompt { width: calc(100% - 24px); top: 8%; left: 50%; transform: translateX(-50%); }
 }
+
+
+
+
+
+
+```css
+/* ======= Agregar al final de styles.css ======= */
+
+/* Parpadeo / pulso en el botón del carrito */
+.ef-cart-blink {
+  animation: efCartPulse 720ms ease-in-out 4;
+  transform-origin: center;
+}
+@keyframes efCartPulse {
+  0% { transform: scale(1); box-shadow: 0 10px 30px rgba(255,41,94,0.08); }
+  25% { transform: scale(1.08); box-shadow: 0 18px 44px rgba(255,41,94,0.16); }
+  50% { transform: scale(1.12); box-shadow: 0 22px 60px rgba(255,41,94,0.2); }
+  75% { transform: scale(1.06); box-shadow: 0 14px 40px rgba(255,41,94,0.12); }
+  100% { transform: scale(1); box-shadow: 0 10px 30px rgba(255,41,94,0.08); }
+}
+
+/* Tip flotante que apunta al carrito (mensaje + flecha) */
+.cart-pulse-tip {
+  position: fixed;
+  z-index: 9999;
+  min-width: 200px;
+  max-width: 320px;
+  background: linear-gradient(180deg,#111217,#0b0b0d);
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.6), 0 8px 28px rgba(255,41,94,0.06);
+  border: 1px solid rgba(255,255,255,0.04);
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  transition: opacity 240ms ease, transform 260ms ease;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+.cart-pulse-tip.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Cuerpo del tip */
+.cart-tip-body { display:flex; flex-direction:column; gap:4px; }
+.cart-tip-text {
+  font-weight: 900;
+  color: var(--neon-pink, #ff295e);
+  font-size: 0.98rem;
+}
+.cart-tip-note {
+  font-size: 0.82rem;
+  color: #cfeee6;
+  opacity: 0.95;
+}
+
+/* Flecha (triángulo) que se posiciona dentro del tip y apunta hacia el elemento */
+.cart-tip-arrow {
+  position: absolute;
+  bottom: -10px; /* sobresale debajo del tip */
+  width: 20px;
+  height: 10px;
+  left: 20px; /* se reubica por JS */
+  transform-origin: center;
+}
+.cart-tip-arrow::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 10px 10px 0 10px;
+  border-style: solid;
+  border-color: rgba(17,18,23,0.98) transparent transparent transparent;
+  display: block;
+  width: 0;
+  height: 0;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45));
+}
+
+/* Hacer la flecha punteada leve (glow) en el ciclo del tip */
+.cart-pulse-tip.show .cart-tip-arrow::before {
+  animation: efArrowPulse 1200ms ease-in-out infinite;
+}
+@keyframes efArrowPulse {
+  0% { transform: translateX(-50%) translateY(0); opacity: 1; }
+  50% { transform: translateX(-50%) translateY(4px); opacity: 0.7; }
+  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+/* Ajustes en móvil para que no tape contenido importante */
+@media (max-width: 720px) {
+  .cart-pulse-tip { min-width: 160px; max-width: 260px; font-size: 0.92rem; padding: 8px 10px; }
+  .cart-tip-arrow { bottom: -8px; }
+}
+```
