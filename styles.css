@@ -921,14 +921,6 @@ main, .section {
 
 
 
-/* >>> Ajustes para centrar los textos de la sección INICIO */
-#inicio .title,
-#inicio .subtitle,
-#inicio .welcome-message,
-#inicio .home-cta,
-#inicio .home-section {
-  text-align: center;
-}
 
 /* Limitar ancho del contenido y centrar con márgenes automáticos */
 #inicio .welcome-message {
@@ -939,12 +931,6 @@ main, .section {
   color: inherit;
 }
 
-/* Asegurar que el CTA quede centrado */
-#inicio .home-cta {
-  display: flex;
-  justify-content: center;
-  margin-top: 1rem;
-}
 
 /* Centrar y acotar los bloques de Favoritos y Promos */
 #inicio .home-section,
@@ -952,13 +938,6 @@ main, .section {
 #inicio #promosContainer {
   max-width: 1100px;
   margin: 1rem auto;
-}
-
-/* Pequeñas mejoras responsivas */
-@media (max-width: 720px) {
-  #inicio .welcome-message { padding: 0 1rem; font-size: 1rem; }
-  #inicio .title { font-size: 1.6rem; }
-  #inicio .subtitle { font-size: 1rem; }
 }
 
 
