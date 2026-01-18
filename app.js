@@ -1143,80 +1143,17 @@ function setupMobileColumnsControl() {
   if (window.__electroflips_tutorial_installed_centered_v2) return;
   window.__electroflips_tutorial_installed_centered_v2 = true;
 
-  const STEPS = [
+ const STEPS = [
     {
       id: 'zoom',
       title: 'Mejor visualización',
       text: 'Recomendamos usar zoom del navegador al 80% para una mejor visualización en escritorio. Puedes cambiarlo desde el menú del navegador (Ctrl/Cmd + -).'
     },
     {
-      id: 'nav',
-      selector: 'nav.main-nav',
-      title: 'Navegación principal',
-      text: 'Usa la barra de navegación para moverte entre Inicio, Catálogo, Carrito y Contacto.'
+      id: 'zoom',
+      title: 'Mejor visualización',
+      text: 'Recomendamos usar zoom del navegador al 80% para una mejor visualización en escritorio. Puedes cambiarlo llendo a la configuración de Chrome (los tres puntos) > Accesibilidad para un zoom general o ajustar el Zoom de página desde las opciones de los 3 puntos.'
     },
-    {
-      id: 'favorites',
-      selector: '#favoritesContainer',
-      title: 'Favoritos',
-      text: 'En Favoritos verás servicios destacados. Toca uno para ver detalles.'
-    },
-    {
-      id: 'promos',
-      selector: '#promosContainer',
-      title: 'Promociones',
-      text: 'Aquí se muestran promociones. Usa "Ver en catálogo" para navegar al producto en el catálogo.'
-    },
-    {
-      id: 'catalog_open',
-
-      title: 'Catálogo (abierto)',
-      text: 'Abrimos el catálogo para que veas las funciones: filtrar, ver detalles y comprar. Cuando pulses Comprar el producto se agregará al carrito.',
-      action: function () {
-        if (typeof showSection === 'function') try { showSection('catalogo'); } catch (e) {}
-        if (typeof renderCatalog === 'function') try { renderCatalog(); } catch (e) {}
-      }
-    },
-    {
-      id: 'productCard',
-      selector: '.product-card',
-      title: 'Tarjetas de producto',
-      text: 'Cada tarjeta muestra imagen, nombre y precio. Usa "Mas Info" para ver el detalle o "Comprar" para agregar el producto al carrito. (Después debes abrir el Carrito para ver los productos que vas a comprar.)'
-    },
-    {
-      id: 'productModal',
-      title: 'Detalles del producto (ejemplo)',
-      text: 'Al abrir "Mas Info" verás un modal con la imagen ampliada, descripción y el botón Comprar. Si el producto está agotado no podrás comprarlo.'
-    },
-    {
-      id: 'cart_open',
-      selector: '#cartBubbleBtn',
-      title: 'Carrito (abierto)',
-      text: 'Abrimos el carrito para que veas cómo cambiar cantidades, eliminar productos y finalizar compra. Recuerda: al dar click en Comprar el producto se añade al carrito; luego debes dar click en el botón Carrito para revisar y finalizar.',
-      action: function () {
-        if (typeof showSection === 'function') try { showSection('carrito'); } catch (e) {}
-        if (typeof renderCart === 'function') try { renderCart(); } catch (e) {}
-      },
-      glowSelector: '#cartBubbleBtn'
-    },
-    {
-      id: 'whatsapp_glow',
-      selector: '#whatsappBubbleBtn',
-      title: 'Contacto por WhatsApp',
-      text: 'Este botón abre un chat de WhatsApp con la tienda. Puedes hacer preguntas o finalizar tu compra. Mientras explicamos, el botón se iluminará para llamar la atención.',
-      glowSelector: '#whatsappBubbleBtn'
-    },
-    {
-      id: 'contact',
-      selector: '#contacto',
-      title: 'Contacto y redes',
-      text: 'En Contacto encontrarás correo, WhatsApp y redes sociales para soporte.'
-    },
-    {
-      id: 'end',
-      title: '¡Listo!',
-      text: 'Recorrido finalizado. El tutorial se puede cerrar con "Finalizar", "Saltar" o "No, gracias". Si quieres repetirlo ejecuta window.startEfTutorial().'
-    }
   ];
 
   /* Inyecta estilos (si no existen) */
@@ -1318,18 +1255,19 @@ function setupMobileColumnsControl() {
       </div>
     `;
 
-    const prompt = document.createElement('div');
+  const prompt = document.createElement('div');
     prompt.id = 'efTutorialPrompt';
     prompt.innerHTML = `
       <div>
-        <h3>¿Deseas hacer el tutorial?</h3>
-        <p>Recomendamos usar zoom 80% para mejor visualización. El tutorial mostrará cómo usar la página.</p>
+        <h3>¿Deseas ver los tips?</h3>
+        <p>Recomendamos usar zoom 80% para mejor visualización. Los siguientes avisos flotantes mostrarán cómo usar el zoom desde una laptop y desde un dispositivo movil.</p>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
           <button id="efStartTut" class="btn">Sí, empezar</button>
           <button id="efSkipTut" class="btn" style="background:#bbb;color:#222;">No, gracias</button>
         </div>
       </div>
     `;
+
 
     document.body.appendChild(overlay);
     document.body.appendChild(tooltip);
