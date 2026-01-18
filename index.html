@@ -15,7 +15,6 @@
       </figure>
 
       <div class="nav-links" aria-hidden="false">
-        <a href="#" onclick="showSection('inicio')">Inicio</a>
         <a href="#" onclick="showSection('catalogo')">Catálogo</a>
         <a href="#" onclick="showSection('carrito')">Carrito</a>
         <a href="#" onclick="showSection('contacto')">Contacto</a>
@@ -38,21 +37,9 @@
   </nav>
 
   <main>
-    <!-- INICIO -->
-    <section id="inicio" class="section active" aria-labelledby="inicio-title">
-      <h1 id="inicio-title" class="title">Bienvenido a Electroflips Xperience</h1>
-      <div class="subtitle">Tu tienda online de servicios y productos electrónicos</div>
-
-      <p class="welcome-message">
-        Disfruta tus plataformas de streaming favoritas, música, deportes y más.
-        <br><span class="highlight">¡Al mejor precio y con calidad garantizada!</span> 💸🔐📺
-        <br>Ofertas exclusivas, acceso inmediato y atención personalizada.
-        <br>¿List@ para hacer de tu sofá el mejor cine del mundo? <span class="wave">🍿🛋️</span>
-      </p>
-
-      <div class="home-cta">
-        <button class="btn" onclick="showSection('catalogo')">Ver Catálogo</button>
-      </div>
+    <!-- CATÁLOGO (sección activa por defecto) -->
+    <section id="catalogo" class="section active" aria-labelledby="catalogo-title">
+      <h2 id="catalogo-title" class="title">Catálogo</h2>
 
       <!-- Favoritos -->
       <section class="home-section" aria-labelledby="fav-title">
@@ -65,14 +52,8 @@
         <h2 id="promos-title" style="text-align:center;">Promociones y Descuentos</h2>
         <div id="promosContainer" class="container-centered"></div>
       </section>
-    </section>
 
-    <!-- CATÁLOGO -->
-    <section id="catalogo" class="section" aria-labelledby="catalogo-title">
-      <h2 id="catalogo-title" class="title">Catálogo</h2>
-
-      <div class="catalog-controls" aria-hidden="false">
-      </div>
+      <div class="catalog-controls" aria-hidden="false"></div>
 
       <div id="catalogContainer" class="catalog-container"></div>
       <div id="catalogFeedback" class="toast" aria-live="polite"></div>
@@ -229,7 +210,6 @@
 
     <nav class="mobile-nav-list" role="navigation" aria-label="Navegación principal">
       <ul>
-        <li><a href="#" onclick="showSection('inicio'); closeMobileNav();">Inicio</a></li>
         <li><a href="#" onclick="showSection('catalogo'); closeMobileNav();">Catálogo</a></li>
         <li><a href="#" onclick="showSection('carrito'); closeMobileNav();">Carrito</a></li>
         <li><a href="#" onclick="showSection('contacto'); closeMobileNav();">Contacto</a></li>
